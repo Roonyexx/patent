@@ -180,30 +180,28 @@ ALTER TABLE "PatentAuthor" ADD CONSTRAINT "FK_PatentAuthor_Patent" FOREIGN KEY (
 CREATE INDEX "IX_PatentAuthor_author_id" ON "PatentAuthor" ("author_id");
 CREATE INDEX "IX_PatentAuthor_patent_id" ON "PatentAuthor" ("patent_id");
 
--- Initial data (Statuses, Positions, Patent Types)
 INSERT INTO "Status" ("name") VALUES 
-  ('Created'),
-  ('Draft'),
-  ('Submitted'),
-  ('Under Review'),
-  ('Approved'),
-  ('Rejected'),
-  ('Active'),
-  ('Expired'),
-  ('In Correction'),
-  ('Withdrawn');
+  ('Создан'),
+  ('Черновик'),
+  ('Отправлен'),
+  ('На рассмотрении'),
+  ('Одобрен'),
+  ('Отклонён'),
+  ('Активен'),
+  ('Истёкший'),
+  ('На исправлении'),
+  ('Отозван');
 
 INSERT INTO "Position" ("name") VALUES 
-  ('Patent Expert'),
-  ('Department Head'),
-  ('Junior Specialist'),
-  ('Senior Specialist');
+  ('Патентный эксперт'),
+  ('Начальник отдела'),
+  ('папочка');
 
 INSERT INTO "PatentType" ("name") VALUES 
-  ('Invention'),
-  ('Utility Model'),
-  ('Design');
+  ('Изобретение'),
+  ('Полезная модель'),
+  ('Промышленный образец');
 
 INSERT INTO "RightsHolder" ("id", "name") VALUES 
-  (0, 'No Rights Holder');
+  (0, 'Правообладатель отсутствует');
 
