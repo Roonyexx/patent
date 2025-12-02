@@ -1,267 +1,163 @@
-
+# frontend/windows/register_window.py
 import tkinter as tk
 from tkinter import ttk, messagebox
-from datetime import date
+from datetime import date, datetime
 from config import Config
 from api_client import APIClient
 
 
 class RegisterWindow:
-    """Окно для регистрации нового пользователя"""
-    
     def __init__(self, api_client: APIClient, on_success_callback):
         self.api_client = api_client
         self.on_success_callback = on_success_callback
-        
+
         self.window = tk.Tk()
         self.window.title(f"{Config.APP_TITLE} - Регистрация")
-        self.window.geometry("500x700")
+        self.window.geometry("520x780")
         self.window.resizable(False, False)
-        
-        # Центрируем окно
         self.center_window()
-        
-        # Создаем интерфейс
         self.create_widgets()
-        
+
     def center_window(self):
-        """Центрировать окно на экране"""
         self.window.update_idletasks()
-        width = self.window.winfo_width()
-        height = self.window.winfo_height()
-        x = (self.window.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.window.winfo_screenheight() // 2) - (height // 2)
-        self.window.geometry(f'{width}x{height}+{x}+{y}')
-    
+        x = (self.window.winfo_screenwidth() // 2) - (self.window.winfo_width() // 2)
+        y = (self.window.winfo_screenheight() // 2) - (self.window.winfo_height() // 2)
+        self.window.geometry(f"+{x}+{y}")
+
     def create_widgets(self):
-        """Создать виджеты окна"""
-        # Контейнер с прокруткой
         canvas = tk.Canvas(self.window)
         scrollbar = ttk.Scrollbar(self.window, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas, padding="30")
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        scrollable = ttk.Frame(canvas, padding="30")
+        scrollable.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
-        
-        # Заголовок
-        title_label = ttk.Label(
-            scrollable_frame,
-            text="Регистрация",
-            style="Title.TLabel"
-        )
-        title_label.pack(pady=(0, 20))
-        
-        # Форма
-        form_frame = ttk.Frame(scrollable_frame)
-        form_frame.pack(fill=tk.BOTH, expand=True)
-        
+
+        ttk.Label(scrollable, text="Регистрация", style="Title.TLabel").pack(pady=(0, 20))
+
         # Email
-        ttk.Label(form_frame, text="Email:").pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(scrollable, text="Email *").pack(anchor="w", pady=(10, 5))
         self.email_var = tk.StringVar()
-        ttk.Entry(form_frame, textvariable=self.email_var).pack(fill=tk.X, pady=(0, 15))
-        
-        # Имя пользователя
-        ttk.Label(form_frame, text="Имя пользователя:").pack(anchor=tk.W, pady=(0, 5))
+        ttk.Entry(scrollable, textvariable=self.email_var, width=40).pack(fill="x", pady=(0, 10))
+
+        # Логин
+        ttk.Label(scrollable, text="Логин *").pack(anchor="w", pady=(10, 5))
         self.username_var = tk.StringVar()
-        ttk.Entry(form_frame, textvariable=self.username_var).pack(fill=tk.X, pady=(0, 15))
-        
+        ttk.Entry(scrollable, textvariable=self.username_var, width=40).pack(fill="x", pady=(0, 10))
+
         # Пароль
-        ttk.Label(form_frame, text="Пароль:").pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(scrollable, text="Пароль *").pack(anchor="w", pady=(10, 5))
         self.password_var = tk.StringVar()
-        ttk.Entry(form_frame, textvariable=self.password_var, show="•").pack(fill=tk.X, pady=(0, 15))
-        
+        ttk.Entry(scrollable, textvariable=self.password_var, show="•", width=40).pack(fill="x", pady=(0, 10))
+
         # Подтверждение пароля
-        ttk.Label(form_frame, text="Подтвердите пароль:").pack(anchor=tk.W, pady=(0, 5))
-        self.confirm_password_var = tk.StringVar()
-        ttk.Entry(form_frame, textvariable=self.confirm_password_var, show="•").pack(fill=tk.X, pady=(0, 15))
-        
+        ttk.Label(scrollable, text="Подтвердите пароль *").pack(anchor="w", pady=(10, 5))
+        self.confirm_var = tk.StringVar()
+        ttk.Entry(scrollable, textvariable=self.confirm_var, show="•", width=40).pack(fill="x", pady=(0, 20))
+
         # Тип пользователя
-        ttk.Label(form_frame, text="Тип пользователя:").pack(anchor=tk.W, pady=(0, 5))
-        self.user_type_var = tk.StringVar(value="employee")
-        
-        user_type_frame = ttk.Frame(form_frame)
-        user_type_frame.pack(fill=tk.X, pady=(0, 15))
-        
-        ttk.Radiobutton(
-            user_type_frame,
-            text="Сотрудник",
-            variable=self.user_type_var,
-            value="employee",
-            command=self.toggle_employee_fields
-        ).pack(side=tk.LEFT, padx=(0, 20))
-        
-        ttk.Radiobutton(
-            user_type_frame,
-            text="Автор",
-            variable=self.user_type_var,
-            value="author",
-            command=self.toggle_employee_fields
-        ).pack(side=tk.LEFT)
-        
+        ttk.Label(scrollable, text="Тип пользователя *").pack(anchor="w", pady=(10, 5))
+        self.user_type_var = tk.StringVar(value="author")
+        frame_type = ttk.Frame(scrollable)
+        frame_type.pack(fill="x", pady=(0, 20))
+        ttk.Radiobutton(frame_type, text="Автор", variable=self.user_type_var, value="author",
+                        command=self.toggle_fields).pack(side="left", padx=(0, 30))
+        ttk.Radiobutton(frame_type, text="Сотрудник патентного отдела", variable=self.user_type_var, value="employee",
+                        command=self.toggle_fields).pack(side="left")
+
         # ФИО
-        ttk.Label(form_frame, text="ФИО:").pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(scrollable, text="ФИО *").pack(anchor="w", pady=(10, 5))
         self.full_name_var = tk.StringVar()
-        ttk.Entry(form_frame, textvariable=self.full_name_var).pack(fill=tk.X, pady=(0, 15))
-        
-        # Поля для сотрудника
-        self.employee_frame = ttk.LabelFrame(form_frame, text="Данные сотрудника", padding="10")
-        self.employee_frame.pack(fill=tk.X, pady=(0, 15))
-        
-        # Должность
-        ttk.Label(self.employee_frame, text="Должность:").pack(anchor=tk.W, pady=(0, 5))
+        ttk.Entry(scrollable, textvariable=self.full_name_var, width=40).pack(fill="x", pady=(0, 20))
+
+        # === Блок сотрудника ===
+        self.employee_block = ttk.LabelFrame(scrollable, text="Данные сотрудника", padding=15)
+
+        ttk.Label(self.employee_block, text="Должность *").pack(anchor="w", pady=(5, 5))
         self.position_var = tk.StringVar()
-        self.position_combo = ttk.Combobox(
-            self.employee_frame,
-            textvariable=self.position_var,
-            state="readonly"
-        )
-        self.position_combo.pack(fill=tk.X, pady=(0, 10))
-        
-        # Загружаем должности (в реальности нужно получить из API)
-        self.position_combo['values'] = ("Патентный эксперт", "Начальник отдела", "папочка")
-        self.position_combo.current(0)
-        
-        # Дата трудоустройства
-        ttk.Label(self.employee_frame, text="Дата трудоустройства (ГГГГ-ММ-ДД):").pack(anchor=tk.W, pady=(0, 5))
-        self.employment_date_var = tk.StringVar(value=str(date.today()))
-        ttk.Entry(self.employee_frame, textvariable=self.employment_date_var).pack(fill=tk.X, pady=(0, 10))
-        
-        # Телефон
-        ttk.Label(self.employee_frame, text="Телефон:").pack(anchor=tk.W, pady=(0, 5))
+        ttk.Combobox(self.employee_block, textvariable=self.position_var, state="readonly",
+                     values=["Патентный эксперт", "Начальник отдела", "Технический специалист"]).pack(fill="x", pady=(0, 10))
+        self.position_var.set("Патентный эксперт")
+
+        ttk.Label(self.employee_block, text="Дата трудоустройства (ГГГГ-ММ-ДД)").pack(anchor="w", pady=(10, 5))
+        self.employment_var = tk.StringVar(value=str(date.today()))
+        ttk.Entry(self.employee_block, textvariable=self.employment_var).pack(fill="x", pady=(0, 10))
+
+        ttk.Label(self.employee_block, text="Телефон").pack(anchor="w", pady=(10, 5))
         self.phone_var = tk.StringVar()
-        ttk.Entry(self.employee_frame, textvariable=self.phone_var).pack(fill=tk.X)
-        
+        ttk.Entry(self.employee_block, textvariable=self.phone_var).pack(fill="x", pady=(0, 10))
+
         # Кнопки
-        buttons_frame = ttk.Frame(form_frame)
-        buttons_frame.pack(fill=tk.X, pady=(20, 0))
-        
-        ttk.Button(
-            buttons_frame,
-            text="Зарегистрироваться",
-            style="Primary.TButton",
-            command=self.register
-        ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 5))
-        
-        ttk.Button(
-            buttons_frame,
-            text="Назад к входу",
-            style="Secondary.TButton",
-            command=self.back_to_login
-        ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0))
-        
-        # Размещаем canvas и scrollbar
+        btn_frame = ttk.Frame(scrollable)
+        btn_frame.pack(fill="x", pady=30)
+        ttk.Button(btn_frame, text="Зарегистрироваться", style="Success.TButton", command=self.register).pack(side="left", expand=True, fill="x", padx=(0, 5))
+        ttk.Button(btn_frame, text="Назад к входу", style="Secondary.TButton", command=self.back).pack(side="right", expand=True, fill="x", padx=(5, 0))
+
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-        
-        # Прокрутка колесом мыши
-        def on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        canvas.bind_all("<MouseWheel>", on_mousewheel)
-    
-    def toggle_employee_fields(self):
-        """Показать/скрыть поля для сотрудника"""
+        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
+
+        self.toggle_fields()  # скрыть блок сотрудника при старте
+
+    def toggle_fields(self):
         if self.user_type_var.get() == "employee":
-            self.employee_frame.pack(fill=tk.X, pady=(0, 15))
+            self.employee_block.pack(fill="x", pady=20)
         else:
-            self.employee_frame.pack_forget()
-    
-    def validate_fields(self):
-        """Валидация полей формы"""
-        if not self.email_var.get().strip():
-            messagebox.showwarning("Предупреждение", "Введите email")
-            return False
-        
-        if not self.username_var.get().strip():
-            messagebox.showwarning("Предупреждение", "Введите имя пользователя")
-            return False
-        
-        if not self.password_var.get():
-            messagebox.showwarning("Предупреждение", "Введите пароль")
-            return False
-        
-        if self.password_var.get() != self.confirm_password_var.get():
-            messagebox.showwarning("Предупреждение", "Пароли не совпадают")
-            return False
-        
-        if len(self.password_var.get()) < 6:
-            messagebox.showwarning("Предупреждение", "Пароль должен быть минимум 6 символов")
-            return False
-        
-        if not self.full_name_var.get().strip():
-            messagebox.showwarning("Предупреждение", "Введите ФИО")
-            return False
-        
+            self.employee_block.pack_forget()
+
+    def validate(self):
+        e = self.email_var.get().strip()
+        u = self.username_var.get().strip()
+        p = self.password_var.get()
+        c = self.confirm_var.get()
+        f = self.full_name_var.get().strip()
+
+        if not e: messagebox.showwarning("Ошибка", "Введите email"); return False
+        if not u: messagebox.showwarning("Ошибка", "Введите логин"); return False
+        if not p: messagebox.showwarning("Ошибка", "Введите пароль"); return False
+        if p != c: messagebox.showwarning("Ошибка", "Пароли не совпадают"); return False
+        if len(p) < 6: messagebox.showwarning("Ошибка", "Пароль должен быть не менее 6 символов"); return False
+        if not f: messagebox.showwarning("Ошибка", "Введите ФИО"); return False
+
         if self.user_type_var.get() == "employee":
             if not self.position_var.get():
-                messagebox.showwarning("Предупреждение", "Выберите должность")
-                return False
-        
+                messagebox.showwarning("Ошибка", "Выберите должность"); return False
+            try:
+                datetime.strptime(self.employment_var.get().strip(), "%Y-%m-%d")
+            except:
+                messagebox.showwarning("Ошибка", "Неверный формат даты (ГГГГ-ММ-ДД)"); return False
+
         return True
-    
+
     def register(self):
-        """Выполнить регистрацию"""
-        if not self.validate_fields():
-            return
-        
+        if not self.validate(): return
+
+        data = {
+            "email": self.email_var.get().strip(),
+            "username": self.username_var.get().strip(),
+            "password": self.password_var.get(),
+            "user_type": self.user_type_var.get(),
+            "full_name": self.full_name_var.get().strip()
+        }
+
+        if self.user_type_var.get() == "employee":
+            pos_map = {"Патентный эксперт": 1, "Начальник отдела": 2, "Технический специалист": 3}
+            data["position_id"] = pos_map.get(self.position_var.get(), 1)
+            data["employment_date"] = self.employment_var.get().strip()
+            if self.phone_var.get().strip():
+                data["phone_number"] = self.phone_var.get().strip()
+
         try:
-            # Подготовка данных
-            user_data = {
-                "email": self.email_var.get().strip(),
-                "username": self.username_var.get().strip(),
-                "password": self.password_var.get(),
-                "user_type": self.user_type_var.get(),
-                "full_name": self.full_name_var.get().strip()
-            }
-            
-            # Добавляем данные сотрудника
-            if self.user_type_var.get() == "employee":
-                # Получаем ID должности (1-3 согласно базе)
-                positions = {
-                    "Патентный эксперт": 1,
-                    "Начальник отдела": 2,
-                    "папочка": 3
-                }
-                user_data["position_id"] = positions.get(self.position_var.get(), 1)
-                user_data["employment_date"] = self.employment_date_var.get()
-                
-                if self.phone_var.get().strip():
-                    user_data["phone_number"] = self.phone_var.get().strip()
-            
-            # Выполняем регистрацию через API
-            response = self.api_client.register(user_data)
-            
-            # Показываем сообщение об успехе
-            messagebox.showinfo(
-                "Успех",
-                f"Регистрация прошла успешно!\nДобро пожаловать, {response['username']}!"
-            )
-            
-            # Закрываем окно
+            self.api_client.register(data)
+            messagebox.showinfo("Успех", "Регистрация прошла успешно!")
             self.window.destroy()
-            
-            # Вызываем callback
-            if self.on_success_callback:
-                self.on_success_callback()
-                
+            self.on_success_callback()
         except Exception as e:
-            messagebox.showerror(
-                "Ошибка регистрации",
-                f"Не удалось зарегистрироваться:\n{str(e)}"
-            )
-    
-    def back_to_login(self):
-        """Вернуться к окну входа"""
+            messagebox.showerror("Ошибка", str(e))
+
+    def back(self):
         from windows.login_window import LoginWindow
-        
         self.window.destroy()
-        login_window = LoginWindow(self.api_client, self.on_success_callback)
-        login_window.run()
-    
+        LoginWindow(self.api_client, self.on_success_callback).run()
+
     def run(self):
-        """Запустить окно"""
         self.window.mainloop()
