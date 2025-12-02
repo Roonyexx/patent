@@ -13,10 +13,25 @@ class RegisterWindow:
 
         self.window = tk.Tk()
         self.window.title(f"{Config.APP_TITLE} - Регистрация")
-        self.window.geometry("520x780")
+        self.window.geometry("620x900")
         self.window.resizable(False, False)
+
+        # StringVar
+        self.email_var = tk.StringVar(master=self.window)
+        self.username_var = tk.StringVar(master=self.window)
+        self.password_var = tk.StringVar(master=self.window)
+        self.confirm_var = tk.StringVar(master=self.window)
+        self.full_name_var = tk.StringVar(master=self.window)
+        self.position_var = tk.StringVar(master=self.window)
+        self.employment_var = tk.StringVar(master=self.window, value=str(date.today()))
+        self.phone_var = tk.StringVar(master=self.window)
+        self.passport_var = tk.StringVar(master=self.window)
+        self.birth_date_var = tk.StringVar(master=self.window)
+        self.user_type_var = tk.StringVar(master=self.window, value="author")
+
         self.center_window()
         self.create_widgets()
+        self.show_fields()
 
     def center_window(self):
         self.window.update_idletasks()
@@ -25,129 +40,118 @@ class RegisterWindow:
         self.window.geometry(f"+{x}+{y}")
 
     def create_widgets(self):
-        canvas = tk.Canvas(self.window)
-        scrollbar = ttk.Scrollbar(self.window, orient="vertical", command=canvas.yview)
-        scrollable = ttk.Frame(canvas, padding="30")
-        scrollable.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=scrollable, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        main = ttk.Frame(self.window, padding=35)
+        main.pack(fill="both", expand=True)
 
-        ttk.Label(scrollable, text="Регистрация", style="Title.TLabel").pack(pady=(0, 20))
+        ttk.Label(main, text="Регистрация в системе", style="Title.TLabel").pack(pady=(0, 30))
 
-        # Email
-        ttk.Label(scrollable, text="Email *").pack(anchor="w", pady=(10, 5))
-        self.email_var = tk.StringVar()
-        ttk.Entry(scrollable, textvariable=self.email_var, width=40).pack(fill="x", pady=(0, 10))
+        ttk.Label(main, text="Кто вы?", font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 10))
+        type_frame = ttk.Frame(main)
+        type_frame.pack(fill="x", pady=(0, 20))
 
-        # Логин
-        ttk.Label(scrollable, text="Логин *").pack(anchor="w", pady=(10, 5))
-        self.username_var = tk.StringVar()
-        ttk.Entry(scrollable, textvariable=self.username_var, width=40).pack(fill="x", pady=(0, 10))
+        ttk.Radiobutton(type_frame, text="Я — Автор изобретения / рационализаторского предложения",
+                        variable=self.user_type_var, value="author", command=self.show_fields).pack(anchor="w", pady=6)
+        ttk.Radiobutton(type_frame, text="Я — Сотрудник патентного отдела",
+                        variable=self.user_type_var, value="employee", command=self.show_fields).pack(anchor="w", pady=6)
 
-        # Пароль
-        ttk.Label(scrollable, text="Пароль *").pack(anchor="w", pady=(10, 5))
-        self.password_var = tk.StringVar()
-        ttk.Entry(scrollable, textvariable=self.password_var, show="•", width=40).pack(fill="x", pady=(0, 10))
+        self.fields_frame = ttk.Frame(main)
+        self.fields_frame.pack(fill="both", expand=True, pady=(10, 0))
 
-        # Подтверждение пароля
-        ttk.Label(scrollable, text="Подтвердите пароль *").pack(anchor="w", pady=(10, 5))
-        self.confirm_var = tk.StringVar()
-        ttk.Entry(scrollable, textvariable=self.confirm_var, show="•", width=40).pack(fill="x", pady=(0, 20))
+        self.btn_frame = ttk.Frame(main)
+        self.btn_frame.pack(fill="x", pady=30)
+        self.create_buttons()
 
-        # Тип пользователя
-        ttk.Label(scrollable, text="Тип пользователя *").pack(anchor="w", pady=(10, 5))
-        self.user_type_var = tk.StringVar(value="author")
-        frame_type = ttk.Frame(scrollable)
-        frame_type.pack(fill="x", pady=(0, 20))
-        ttk.Radiobutton(frame_type, text="Автор", variable=self.user_type_var, value="author",
-                        command=self.toggle_fields).pack(side="left", padx=(0, 30))
-        ttk.Radiobutton(frame_type, text="Сотрудник патентного отдела", variable=self.user_type_var, value="employee",
-                        command=self.toggle_fields).pack(side="left")
-
-        # ФИО
-        ttk.Label(scrollable, text="ФИО *").pack(anchor="w", pady=(10, 5))
-        self.full_name_var = tk.StringVar()
-        ttk.Entry(scrollable, textvariable=self.full_name_var, width=40).pack(fill="x", pady=(0, 20))
-
-        # === Блок сотрудника ===
-        self.employee_block = ttk.LabelFrame(scrollable, text="Данные сотрудника", padding=15)
-
-        ttk.Label(self.employee_block, text="Должность *").pack(anchor="w", pady=(5, 5))
-        self.position_var = tk.StringVar()
-        ttk.Combobox(self.employee_block, textvariable=self.position_var, state="readonly",
-                     values=["Патентный эксперт", "Начальник отдела", "Технический специалист"]).pack(fill="x", pady=(0, 10))
-        self.position_var.set("Патентный эксперт")
-
-        ttk.Label(self.employee_block, text="Дата трудоустройства (ГГГГ-ММ-ДД)").pack(anchor="w", pady=(10, 5))
-        self.employment_var = tk.StringVar(value=str(date.today()))
-        ttk.Entry(self.employee_block, textvariable=self.employment_var).pack(fill="x", pady=(0, 10))
-
-        ttk.Label(self.employee_block, text="Телефон").pack(anchor="w", pady=(10, 5))
-        self.phone_var = tk.StringVar()
-        ttk.Entry(self.employee_block, textvariable=self.phone_var).pack(fill="x", pady=(0, 10))
-
-        # Кнопки
-        btn_frame = ttk.Frame(scrollable)
-        btn_frame.pack(fill="x", pady=30)
-        ttk.Button(btn_frame, text="Зарегистрироваться", style="Success.TButton", command=self.register).pack(side="left", expand=True, fill="x", padx=(0, 5))
-        ttk.Button(btn_frame, text="Назад к входу", style="Secondary.TButton", command=self.back).pack(side="right", expand=True, fill="x", padx=(5, 0))
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
-
-        self.toggle_fields()  # скрыть блок сотрудника при старте
-
-    def toggle_fields(self):
-        if self.user_type_var.get() == "employee":
-            self.employee_block.pack(fill="x", pady=20)
+    def show_fields(self):
+        for widget in self.fields_frame.winfo_children():
+            widget.destroy()
+        if self.user_type_var.get() == "author":
+            self.show_author_fields()
         else:
-            self.employee_block.pack_forget()
+            self.show_employee_fields()
+
+    def show_author_fields(self):
+        f = self.fields_frame
+        ttk.Label(f, text="Регистрация автора", font=("Segoe UI", 14, "bold"),
+                  foreground=Config.SECONDARY_COLOR).pack(anchor="w", pady=(0, 20))
+        self.add_field(f, "Email *", self.email_var)
+        self.add_field(f, "Логин *", self.username_var)
+        self.add_field(f, "Пароль *", self.password_var, show="•")
+        self.add_field(f, "Подтвердите пароль *", self.confirm_var, show="•")
+        self.add_field(f, "ФИО *", self.full_name_var, pady=(20, 0))
+        ttk.Label(f, text="Паспортные данные (необязательно)", foreground=Config.LIGHT_TEXT).pack(anchor="w", pady=(20, 5))
+        self.add_field(f, "Серия и номер паспорта (через пробел)", self.passport_var)
+        self.add_field(f, "Дата рождения (ГГГГ-ММ-ДД)", self.birth_date_var)
+
+    def show_employee_fields(self):
+        f = self.fields_frame
+        ttk.Label(f, text="Регистрация сотрудника", font=("Segoe UI", 14, "bold"),
+                  foreground=Config.SUCCESS_COLOR).pack(anchor="w", pady=(0, 15))
+        self.add_field(f, "Email *", self.email_var)
+        self.add_field(f, "Логин *", self.username_var)
+        self.add_field(f, "Пароль *", self.password_var, show="•")
+        self.add_field(f, "Подтвердите пароль *", self.confirm_var, show="•")
+        self.add_field(f, "ФИО *", self.full_name_var, pady=(10, 0))
+        ttk.Label(f, text="Должность *").pack(anchor="w", pady=(10, 5))
+        ttk.Combobox(f, textvariable=self.position_var, state="readonly",
+                     values=["Патентный эксперт", "Начальник отдела", "папочка"]).pack(fill="x", pady=(0, 10))
+        self.position_var.set("Патентный эксперт")
+        self.add_field(f, "Дата трудоустройства *", self.employment_var, pady=(15, 0))
+        self.add_field(f, "Телефон", self.phone_var)
+
+    def add_field(self, parent, label, var, show=None, pady=(5, 10)):
+        ttk.Label(parent, text=label).pack(anchor="w", pady=(pady[0], 3))
+        ttk.Entry(parent, textvariable=var, width=50, show=show).pack(fill="x", pady=(0, pady[1]))
+
+    def create_buttons(self):
+        ttk.Button(self.btn_frame, text="Зарегистрироваться", style="Success.TButton",
+                   command=self.submit).pack(side="left", expand=True, fill="x", padx=5)
+        ttk.Button(self.btn_frame, text="Назад к входу", style="Secondary.TButton",
+                   command=self.back).pack(side="right", expand=True, fill="x", padx=5)
 
     def validate(self):
-        e = self.email_var.get().strip()
-        u = self.username_var.get().strip()
-        p = self.password_var.get()
-        c = self.confirm_var.get()
-        f = self.full_name_var.get().strip()
-
-        if not e: messagebox.showwarning("Ошибка", "Введите email"); return False
-        if not u: messagebox.showwarning("Ошибка", "Введите логин"); return False
-        if not p: messagebox.showwarning("Ошибка", "Введите пароль"); return False
-        if p != c: messagebox.showwarning("Ошибка", "Пароли не совпадают"); return False
-        if len(p) < 6: messagebox.showwarning("Ошибка", "Пароль должен быть не менее 6 символов"); return False
-        if not f: messagebox.showwarning("Ошибка", "Введите ФИО"); return False
-
+        if not self.email_var.get().strip(): return "Введите email"
+        if not self.username_var.get().strip(): return "Введите логин"
+        if len(self.password_var.get()) < 6: return "Пароль должен быть не менее 6 символов"
+        if self.password_var.get() != self.confirm_var.get(): return "Пароли не совпадают"
+        if not self.full_name_var.get().strip(): return "Введите ФИО"
         if self.user_type_var.get() == "employee":
-            if not self.position_var.get():
-                messagebox.showwarning("Ошибка", "Выберите должность"); return False
             try:
                 datetime.strptime(self.employment_var.get().strip(), "%Y-%m-%d")
             except:
-                messagebox.showwarning("Ошибка", "Неверный формат даты (ГГГГ-ММ-ДД)"); return False
+                return "Неверный формат даты трудоустройства"
+        return None
 
-        return True
+    def submit(self):
+        err = self.validate()
+        if err:
+            messagebox.showwarning("Ошибка", err)
+            return
 
-    def register(self):
-        if not self.validate(): return
-
-        data = {
+        payload = {
             "email": self.email_var.get().strip(),
             "username": self.username_var.get().strip(),
             "password": self.password_var.get(),
-            "user_type": self.user_type_var.get(),
-            "full_name": self.full_name_var.get().strip()
+            "full_name": self.full_name_var.get().strip(),
+            "user_type": self.user_type_var.get()
         }
 
         if self.user_type_var.get() == "employee":
-            pos_map = {"Патентный эксперт": 1, "Начальник отдела": 2, "Технический специалист": 3}
-            data["position_id"] = pos_map.get(self.position_var.get(), 1)
-            data["employment_date"] = self.employment_var.get().strip()
-            if self.phone_var.get().strip():
-                data["phone_number"] = self.phone_var.get().strip()
+            payload.update({
+                "position_name": self.position_var.get(),
+                "employment_date": self.employment_var.get().strip(),
+                "phone_number": self.phone_var.get().strip() or None
+            })
+        else:
+            if self.passport_var.get().strip():
+                parts = self.passport_var.get().strip().split()
+                if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                    payload["passport_series"] = int(parts[0])
+                    payload["passport_number"] = int(parts[1])
+            if self.birth_date_var.get().strip():
+                payload["birth_date"] = self.birth_date_var.get().strip()
 
         try:
-            self.api_client.register(data)
+            self.api_client.register(payload)
             messagebox.showinfo("Успех", "Регистрация прошла успешно!")
             self.window.destroy()
             self.on_success_callback()

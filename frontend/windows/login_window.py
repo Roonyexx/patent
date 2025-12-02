@@ -6,8 +6,6 @@ from styles import Styles
 
 
 class LoginWindow:
-    """Окно входа в систему"""
-
     def __init__(self, api_client, on_success_callback):
         self.api_client = api_client
         self.on_success_callback = on_success_callback
@@ -17,12 +15,8 @@ class LoginWindow:
         self.window.geometry(Config.LOGIN_WINDOW_SIZE)
         self.window.resizable(False, False)
 
-        # Центрируем окно
-        self.center_window()
-
-        # Применяем стили (один раз для всего приложения)
         Styles.configure_styles()
-
+        self.center_window()
         self.create_widgets()
 
     def center_window(self):
@@ -34,68 +28,36 @@ class LoginWindow:
         self.window.geometry(f"{w}x{h}+{x}+{y}")
 
     def create_widgets(self):
-        main_frame = ttk.Frame(self.window, padding="50")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        frame = ttk.Frame(self.window, padding=50)
+        frame.pack(fill="both", expand=True)
 
-        # Заголовок
-        ttk.Label(
-            main_frame,
-            text=Config.APP_TITLE,
-            style="Title.TLabel"
-        ).pack(pady=(0, 20))
+        ttk.Label(frame, text=Config.APP_TITLE, style="Title.TLabel").pack(pady=(0, 20))
+        ttk.Label(frame, text="Вход в систему", font=(Config.FONT_FAMILY, 14)).pack(pady=(0, 40))
 
-        ttk.Label(
-            main_frame,
-            text="Вход в систему",
-            font=(Config.FONT_FAMILY, 14),
-            foreground=Config.LIGHT_TEXT
-        ).pack(pady=(0, 40))
-
-        # Логин
-        ttk.Label(main_frame, text="Логин:").pack(anchor="w", pady=(0, 5))
+        # Username
+        ttk.Label(frame, text="Логин:").pack(anchor="w")
         self.username_var = tk.StringVar()
-        ttk.Entry(main_frame, textvariable=self.username_var, width=35, font=(Config.FONT_FAMILY, 11)).pack(pady=(0, 15))
+        ttk.Entry(frame, textvariable=self.username_var, width=35).pack(pady=(0, 15))
 
-        # Пароль
-        ttk.Label(main_frame, text="Пароль:").pack(anchor="w", pady=(0, 5))
+        # Password
+        ttk.Label(frame, text="Пароль:").pack(anchor="w")
         self.password_var = tk.StringVar()
-        ttk.Entry(main_frame, textvariable=self.password_var, show="•", width=35, font=(Config.FONT_FAMILY, 11)).pack(pady=(0, 25))
+        ttk.Entry(frame, textvariable=self.password_var, show="•", width=35).pack(pady=(0, 20))
 
-        # Кнопка Войти
-        ttk.Button(
-            main_frame,
-            text="Войти",
-            style="Success.TButton",
-            command=self.login
-        ).pack(fill=tk.X, pady=(10, 10))
+        ttk.Button(frame, text="Войти", style="Success.TButton",
+                   command=self.login).pack(fill="x", pady=(10, 20))
 
-        # Кнопка Регистрация
-        ttk.Button(
-            main_frame,
-            text="Регистрация нового пользователя",
-            style="Secondary.TButton",
-            command=self.open_register
-        ).pack(fill=tk.X, pady=(0, 30))
+        ttk.Button(frame, text="Создать аккаунт", style="Secondary.TButton",
+                   command=self.open_register).pack(fill="x")
 
-        # Подвал
-        ttk.Label(
-            main_frame,
-            text=f"Версия {Config.APP_VERSION} © 2025",
-            foreground=Config.LIGHT_TEXT,
-            font=(Config.FONT_FAMILY, 8)
-        ).pack(side=tk.BOTTOM, pady=20)
-
-        # Enter = войти
         self.window.bind("<Return>", lambda e: self.login())
-        self.username_var.set("")
-        self.username_var.trace_add("write", lambda *args: self.username_var.set(self.username_var.get().strip()))
 
     def login(self):
         username = self.username_var.get().strip()
         password = self.password_var.get()
 
         if not username or not password:
-            messagebox.showerror("Ошибка", "Введите логин и пароль")
+            messagebox.showwarning("Ошибка", "Введите логин и пароль")
             return
 
         try:
