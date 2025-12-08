@@ -38,7 +38,7 @@ async def register(
             detail="Username already registered"
         )
     
-    existing_email = await get_user_by_email(session, registration.email)
+    existing_email = await get_user_by_email(session, str(registration.email))
     if existing_email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -68,7 +68,6 @@ async def register(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="position_id is required for employees"
             )
-        
 
         position = await get_position(session, registration.position_id)
         if not position:
@@ -96,7 +95,7 @@ async def register(
     
     new_user = await create_user(
         session=session,
-        email=registration.email,
+        email=str(registration.email),
         username=registration.username,
         password=registration.password,
         user_type=registration.user_type,
@@ -153,9 +152,9 @@ async def login(
         )
     
     position_name = None
-    if user.user_type == "employee" and user.employee:
-        if user.employee.position:
-            position_name = user.employee.position.name
+    # if user.user_type == "employee" and user.employee:
+    #     if user.employee.position:
+    #         position_name = user.employee.position.name
     
     access_token = create_access_token(
         user_id=user.id,

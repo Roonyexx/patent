@@ -1,12 +1,12 @@
 from typing import Annotated, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from src.db.database import getSession
+from src.db.database import get_async_session_generator
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.security import verify_token, extract_token_from_header, TokenData
 from src.db.crud.user import get_user_by_id
 
-SessionDep = Annotated[AsyncSession, Depends(getSession)]
+SessionDep = Annotated[AsyncSession, Depends(get_async_session_generator)]
 oauth2 = HTTPBearer()
 TokenDep = Annotated[HTTPAuthorizationCredentials, Depends(oauth2)]
 

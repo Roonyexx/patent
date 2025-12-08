@@ -3,19 +3,16 @@ from typing import Optional
 from datetime import date, datetime
 
 
-
 class UserRegister(BaseModel):
     email: EmailStr
     username: str
     password: str
-    user_type: str  
-    
+    user_type: str
 
     full_name: Optional[str] = None
     employment_date: Optional[date] = None
     phone_number: Optional[str] = None
     position_id: Optional[int] = None
-
 
 
 class UserLogin(BaseModel):
@@ -43,21 +40,22 @@ class UserResponse(BaseModel):
     user_type: str
     is_active: bool
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
 
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 
 class PositionBase(BaseModel):
     name: str
 
+
 class Position(PositionBase):
     id: int
-    
-    class Config:
-        from_attributes = True
 
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 
 class PassportBase(BaseModel):
@@ -68,66 +66,75 @@ class PassportBase(BaseModel):
     department_code: Optional[int] = None
     issued_by: Optional[str] = None
 
+
 class Passport(PassportBase):
     id: int
-    
-    class Config:
-        from_attributes = True
 
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 
 class AuthorBase(BaseModel):
     full_name: str
     passport_id: Optional[int] = None
 
+
 class Author(AuthorBase):
     id: int
-    
-    class Config:
-        from_attributes = True
 
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 
 class StatusBase(BaseModel):
     name: str
 
+
 class Status(StatusBase):
     id: int
-    
-    class Config:
-        from_attributes = True
 
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 
 class EmployeeBase(BaseModel):
     full_name: str
     employment_date: Optional[date] = None
     termination_date: Optional[date] = None
-    phone_number: Optional[int] = None
+    phone_number: Optional[str] = None
     position_id: Optional[int] = None
     passport_id: Optional[int] = None
 
+
 class Employee(EmployeeBase):
     id: int
-    
-    class Config:
-        from_attributes = True
 
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 
 class ApplicationBase(BaseModel):
     documents: Optional[str] = None
     expert_conclusion: Optional[str] = None
+    status_id: Optional[int] = None
+
 
 class ApplicationCreate(ApplicationBase):
     pass
 
+
 class PatentBrief(BaseModel):
     id: int
     title: Optional[str] = None
-    
+
     class Config:
+        orm_mode = True
         from_attributes = True
+
 
 class Application(ApplicationBase):
     id: int
@@ -138,30 +145,33 @@ class Application(ApplicationBase):
     employee_id: Optional[int] = None
     author_id: Optional[int] = None
     patent: Optional[PatentBrief] = None
-    
-    class Config:
-        from_attributes = True
 
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 
 class RightsHolderBase(BaseModel):
     name: str
 
+
 class RightsHolder(RightsHolderBase):
     id: int
-    
-    class Config:
-        from_attributes = True
 
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 
 class PatentTypeBase(BaseModel):
     name: Optional[str] = None
 
+
 class PatentType(PatentTypeBase):
     id: int
-    
+
     class Config:
+        orm_mode = True
         from_attributes = True
 
 
@@ -173,18 +183,20 @@ class PatentBase(BaseModel):
     patent_type_id: Optional[int] = None
     application_id: int
 
+
 class PatentCreate(PatentBase):
     pass
+
 
 class Patent(PatentBase):
     id: int
     expiration_date: Optional[date] = None
     status_id: Optional[int] = None
     status: Optional[Status] = None
-    
-    class Config:
-        from_attributes = True
 
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 
 class PatentAuthorBase(BaseModel):
@@ -193,7 +205,8 @@ class PatentAuthorBase(BaseModel):
     author_id: int
     patent_id: int
 
+
 class PatentAuthor(PatentAuthorBase):
-    
     class Config:
+        orm_mode = True
         from_attributes = True

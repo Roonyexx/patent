@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from src.models.models import Application, Status
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 async def get_application(session: AsyncSession, application_id: int):
@@ -37,15 +37,15 @@ async def get_applications_by_status(session: AsyncSession, status_id: int, skip
 
 async def create_application(session: AsyncSession, application_data: dict):
     db_application = Application(
-        submission_date=datetime.utcnow(),
+        submission_date=datetime.now(UTC).replace(tzinfo=None),
         documents=application_data.get("documents"),
-        status_id=application_data.get("status_id", 1),  # Default to 'Created' status (id=1)
+        status_id=application_data.get("status_id"),
         employee_id=application_data.get("employee_id"),
         author_id=application_data.get("author_id")
     )
     session.add(db_application)
     await session.commit()
-    await session.refresh(db_application)
+    await session.refresh(db_application, ["status", "patent"])
     return db_application
 
 
@@ -53,14 +53,14 @@ async def update_application(session: AsyncSession, application_id: int, update_
     db_application = await get_application(session, application_id)
     if not db_application:
         return None
-    
+
     for key, value in update_data.items():
         if value is not None:
             setattr(db_application, key, value)
-    
+
     db_application.modification_date = datetime.utcnow()
     await session.commit()
-    await session.refresh(db_application)
+    await session.refresh(db_application, ["status", "patent"])
     return db_application
 
 

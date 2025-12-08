@@ -1,0 +1,95 @@
+import tkinter as tk
+from tkinter import messagebox
+
+import src.client.ui.ui_extensions as ext
+from src.client.client import Client
+from src.client.ui.applications_window import ApplicationsWindow
+from src.client.ui.patents_window import PatentsWindow
+from src.client.ui.analytics_window import AnalyticsWindow
+from src.client.ui.references_window import ReferencesWindow
+
+
+WINDOW_SIZE = '1400x800'
+
+
+class MainWindow:
+    def __init__(self, client: Client):
+        self.client = client
+        self.user = self.client.get_current_user()
+        
+        self.window = tk.Tk()
+        self.window.title('Патентный менеджер')
+        self.window.geometry(WINDOW_SIZE)
+
+        self.content = None
+        self.content_frame = None
+
+        self.create_widgets()
+        self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
+        ext.center_window(self.window)
+    
+    def create_widgets(self):
+        top_frame = tk.Frame(self.window)
+        top_frame.pack(fill=tk.X, side=tk.TOP)
+
+        tk.Button(top_frame, text="Выход", command=self.logout).pack(side=tk.RIGHT, padx=(0, 10))
+        tk.Label(top_frame, text=f'{self.user.get('username')}').pack(side=tk.RIGHT, padx=(0, 10))
+
+        main_container = tk.Frame(self.window)
+        main_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        sidebar_frame = tk.Frame(main_container, width=200)
+        sidebar_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+        sidebar_frame.pack_propagate(False)
+
+        tk.Label(sidebar_frame, text="Меню").pack(pady=(0, 10))
+
+        tk.Button(sidebar_frame, text="Заявки", command=lambda: self.show_content("applications")).pack(fill=tk.X,
+                                                                                                        pady=(0, 5))
+        tk.Button(sidebar_frame, text="Патенты", command=lambda: self.show_content("patents")).pack(fill=tk.X,
+                                                                                                    pady=(0, 5))
+        tk.Button(sidebar_frame, text="Аналитика", command=lambda: self.show_content("analytics")).pack(fill=tk.X,
+                                                                                                        pady=(0, 5))
+        tk.Button(sidebar_frame, text="Справочники", command=lambda: self.show_content("references")).pack(fill=tk.X,
+                                                                                                           pady=(0, 5))
+
+        self.content_frame = tk.Frame(main_container)
+        self.content_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.show_content("applications")
+    
+    def show_content(self, content_type):
+        for widget in self.content_frame.winfo_children():
+            widget.destroy()
+
+        if content_type == "applications":
+            self.content = ApplicationsWindow(self.content_frame, self.user, self.client)
+        elif content_type == "patents":
+            self.content = PatentsWindow(self.content_frame, self.client)
+        elif content_type == "analytics":
+            self.content = AnalyticsWindow(self.content_frame, self.client)
+        elif content_type == "references":
+            self.content = ReferencesWindow(self.content_frame, self.client)
+
+    def logout(self):
+        if messagebox.askyesno("Выход", "Вы действительно хотите выйти?"):
+            try:
+                self.client.logout()
+            except Exception as e:
+                messagebox.showerror(str(e))
+            
+            self.window.destroy()
+
+            from src.client.ui.login_window import LoginWindow
+            LoginWindow(self.client).show()
+    
+    def on_closing(self):
+        if messagebox.askyesno("Выход", "Вы действительно хотите выйти из программы?"):
+            try:
+                self.client.logout()
+            except Exception as e:
+                messagebox.showerror(str(e))
+
+            self.window.destroy()
+    
+    def show(self):
+        self.window.mainloop()

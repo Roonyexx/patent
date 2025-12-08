@@ -1,16 +1,14 @@
-"""
-Окно справочников
-"""
 import tkinter as tk
 from tkinter import ttk, messagebox
-from config import Config
-from api_client import APIClient
+
+import src.client.config as config
+from src.client.client import Client
 
 
 class ReferencesWindow:
     """Окно для работы со справочниками"""
     
-    def __init__(self, parent_frame, api_client: APIClient):
+    def __init__(self, parent_frame, api_client: Client):
         self.parent_frame = parent_frame
         self.api_client = api_client
         
@@ -428,7 +426,7 @@ class ReferencesWindow:
                     patent.get('id', ''),
                     patent.get('title', ''),
                     patent.get('issue_date', ''),
-                    Config.PATENT_TYPE_NAMES.get(patent.get('patent_type_id'), 'Неизвестно'),
+                    config.PATENT_TYPE_NAMES.get(patent.get('patent_type_id'), 'Неизвестно'),
                     patent.get('status', {}).get('name', 'Не указан') if patent.get('status') else 'Не указан'
                 )
                 tree.insert("", tk.END, values=values)

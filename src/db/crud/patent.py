@@ -54,7 +54,7 @@ async def create_patent(session: AsyncSession, patent_data: dict):
         description=patent_data.get("description"),
         rights_holder_id=patent_data.get("rights_holder_id"),
         patent_type_id=patent_data.get("patent_type_id"),
-        status_id=patent_data.get("status_id", 1),  
+        status_id=patent_data.get("status_id"),
         application_id=patent_data.get("application_id")
     )
     session.add(db_patent)

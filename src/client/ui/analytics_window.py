@@ -1,16 +1,14 @@
-"""
-Окно аналитики и отчетов
-"""
 import tkinter as tk
 from tkinter import ttk, messagebox
-from config import Config
-from api_client import APIClient
+
+import src.client.config as config
+from src.client.client import Client
 
 
 class AnalyticsWindow:
     """Окно для просмотра аналитики"""
     
-    def __init__(self, parent_frame, api_client: APIClient):
+    def __init__(self, parent_frame, api_client: Client):
         self.parent_frame = parent_frame
         self.api_client = api_client
         
@@ -78,8 +76,8 @@ class AnalyticsWindow:
         ttk.Label(
             total_card,
             textvariable=self.total_patents_var,
-            font=(Config.FONT_FAMILY, 32, "bold"),
-            foreground=Config.PRIMARY_COLOR
+            font=(config.FONT_FAMILY, 32, "bold"),
+            foreground=config.PRIMARY_COLOR
         ).pack()
         
         # Карточка: Всего заявок
@@ -90,8 +88,8 @@ class AnalyticsWindow:
         ttk.Label(
             apps_card,
             textvariable=self.total_applications_var,
-            font=(Config.FONT_FAMILY, 32, "bold"),
-            foreground=Config.SECONDARY_COLOR
+            font=(config.FONT_FAMILY, 32, "bold"),
+            foreground=config.SECONDARY_COLOR
         ).pack()
         
         # Карточка: Истекшие патенты
@@ -102,8 +100,8 @@ class AnalyticsWindow:
         ttk.Label(
             expired_card,
             textvariable=self.expired_patents_var,
-            font=(Config.FONT_FAMILY, 32, "bold"),
-            foreground=Config.DANGER_COLOR
+            font=(config.FONT_FAMILY, 32, "bold"),
+            foreground=config.DANGER_COLOR
         ).pack()
         
         # Информация
@@ -113,7 +111,7 @@ class AnalyticsWindow:
         self.general_info_text = tk.Text(
             info_frame,
             height=10,
-            font=(Config.FONT_FAMILY, Config.FONT_SIZE_NORMAL),
+            font=(config.FONT_FAMILY, config.FONT_SIZE_NORMAL),
             wrap=tk.WORD,
             state=tk.DISABLED
         )
@@ -300,7 +298,7 @@ class AnalyticsWindow:
             # Заполняем
             for item in data.get('data', []):
                 type_id = item.get('type_id')
-                type_name = Config.PATENT_TYPE_NAMES.get(type_id, f'Тип {type_id}')
+                type_name = config.PATENT_TYPE_NAMES.get(type_id, f'Тип {type_id}')
                 
                 values = (
                     type_name,

@@ -1,7 +1,7 @@
 from src.db.database import Base
 from sqlalchemy import *
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 class User(Base):
@@ -12,13 +12,10 @@ class User(Base):
     username = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    user_type = Column(String, nullable=False)  # 'employee' или 'author'
+    created_at = Column(DateTime, default=datetime.now(UTC).replace(tzinfo=None))
+    user_type = Column(String, nullable=False)
     employee_id = Column(Integer, ForeignKey("Employee.id", ondelete="CASCADE", onupdate="RESTRICT"), nullable=True)
     author_id = Column(Integer, ForeignKey("Author.id", ondelete="CASCADE", onupdate="RESTRICT"), nullable=True)
-    
-    employee = relationship("Employee", foreign_keys=[employee_id])
-    author = relationship("Author", foreign_keys=[author_id])
 
 
 class Position(Base):
@@ -68,7 +65,7 @@ class Status(Base):
 
 class Employee(Base):
     __tablename__ = "Employee"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     full_name = Column(String, nullable=False)
     employment_date = Column(Date)
@@ -76,7 +73,7 @@ class Employee(Base):
     phone_number = Column(String)
     position_id = Column(Integer, ForeignKey("Position.id", ondelete="RESTRICT", onupdate="RESTRICT"))
     passport_id = Column(Integer, ForeignKey("Passport.id", ondelete="CASCADE", onupdate="RESTRICT"))
-    
+
     position = relationship("Position", back_populates="employees")
     passport = relationship("Passport", back_populates="employees")
     applications = relationship("Application", back_populates="employee")
@@ -86,9 +83,9 @@ class Application(Base):
     __tablename__ = "Application"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    submission_date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    submission_date = Column(DateTime, default=datetime.now(UTC).replace(tzinfo=None), nullable=False)
     documents = Column(Text)
-    modification_date = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    modification_date = Column(DateTime, default=datetime.now(UTC).replace(tzinfo=None), onupdate=datetime.now(UTC).replace(tzinfo=None))
     expert_conclusion = Column(Text)
     status_id = Column(Integer, ForeignKey("Status.id", ondelete="RESTRICT", onupdate="RESTRICT"))
     employee_id = Column(Integer, ForeignKey("Employee.id", ondelete="RESTRICT", onupdate="RESTRICT"))

@@ -5,7 +5,6 @@ from src.schemas.patent import Patent, PatentBase
 from src.db.crud.patent import (
     get_patent, get_patents, create_patent,
     update_patent, delete_patent, get_expired_patents,
-    get_patents_by_owner
 )
 
 router = APIRouter()
@@ -75,7 +74,7 @@ async def create_new_patent(
     current_user: CurrentUserDep
 ):
     """Create new patent (requires authentication)"""
-    patent_data = patent.dict()
+    patent_data = patent.model_dump()
     db_patent = await create_patent(session, patent_data)
     return db_patent
 

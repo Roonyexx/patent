@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from src.api.depends import SessionDep, CurrentUserDep, EmployeeUserDep
-from src.schemas.patent import Application, ApplicationCreate, Status
+from src.schemas.patent import Application, ApplicationCreate
 from src.db.crud.application import (
     get_application, get_applications, create_application,
     update_application, delete_application, get_applications_by_status
@@ -18,7 +18,7 @@ async def list_applications(
 ):
     """Get list of applications (requires authentication)"""
     applications = await get_applications(session, skip, limit)
-    return applications
+    return [Application.from_orm(a) for a in applications]
 
 
 @router.get("/{application_id}", response_model=Application)
@@ -31,7 +31,7 @@ async def get_application_details(
     application = await get_application(session, application_id)
     if not application:
         raise HTTPException(status_code=404, detail="Application not found")
-    return application
+    return Application.from_orm(application)
 
 
 @router.get("/status/{status_id}", response_model=list[Application])
@@ -42,7 +42,7 @@ async def get_applications_with_status(
 ):
     """Get applications by status (requires authentication)"""
     applications = await get_applications_by_status(session, status_id)
-    return applications
+    return [Application.from_orm(a) for a in applications]
 
 
 @router.post("/", response_model=Application)
@@ -61,7 +61,7 @@ async def create_new_application(
         raise HTTPException(status_code=403, detail="Only employees or authors can create applications")
 
     db_application = await create_application(session, application_data)
-    return db_application
+    return Application.from_orm(db_application)
 
 
 @router.put("/{application_id}", response_model=Application)
@@ -77,7 +77,7 @@ async def update_application_details(
     )
     if not updated_application:
         raise HTTPException(status_code=404, detail="Application not found")
-    return updated_application
+    return Application.from_orm(updated_application)
 
 
 @router.delete("/{application_id}")

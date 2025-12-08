@@ -12,7 +12,7 @@ from src.db.crud.references import (
     get_author, get_authors, create_author,
     get_rights_holder, get_rights_holders, create_rights_holder,
     get_status, get_statuses, create_status,
-    get_patent_type, get_patent_types, create_patent_type
+    get_patent_type, get_patent_types, create_patent_type, get_positions
 )
 
 router = APIRouter()
@@ -73,14 +73,13 @@ async def create_new_author(author: AuthorBase, session: SessionDep):
     return db_author
 
 @router.get("/rightsholders/", response_model=list[RightsHolder])
-async def list_rightsholders(session: SessionDep, skip: int = 0, limit: int = 100):
+async def list_rights_holders(session: SessionDep, skip: int = 0, limit: int = 100):
     """Get list of rights holders"""
     rightsholders = await get_rights_holders(session, skip, limit)
     return rightsholders
 
-
 @router.get("/rightsholders/{holder_id}", response_model=RightsHolder)
-async def get_rightsholder_details(holder_id: int, session: SessionDep):
+async def get_rights_holder_details(holder_id: int, session: SessionDep):
     """Get rights holder details"""
     rightsholder = await get_rights_holder(session, holder_id)
     if not rightsholder:
@@ -89,7 +88,7 @@ async def get_rightsholder_details(holder_id: int, session: SessionDep):
 
 
 @router.post("/rightsholders/", response_model=RightsHolder)
-async def create_new_rightsholder(rightsholder: RightsHolderBase, session: SessionDep):
+async def create_new_rights_holder(rightsholder: RightsHolderBase, session: SessionDep):
     """Create rights holder"""
     db_rightsholder = await create_rights_holder(session, rightsholder.dict())
     return db_rightsholder
@@ -137,5 +136,11 @@ async def get_type_details(type_id: int, session: SessionDep):
 @router.post("/types/", response_model=PatentType)
 async def create_new_type(type_obj: PatentTypeBase, session: SessionDep):
     """Create patent type"""
-    db_type = await create_patent_type(session, type_obj.dict())
+    db_type = await create_patent_type(session, type_obj.model_dump())
     return db_type
+
+
+@router.get("/positions/", response_model=list[Position])
+async def list_positions(session: SessionDep):
+    positions = await get_positions(session)
+    return positions
