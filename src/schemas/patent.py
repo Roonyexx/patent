@@ -88,6 +88,17 @@ class Author(AuthorBase):
         from_attributes = True
 
 
+class AuthorDetailed(AuthorBase):
+    id: int
+    passport: Optional['Passport'] = None
+    applications: Optional[list['Application']] = None
+    patents: Optional[list['PatentBrief']] = None
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
 class StatusBase(BaseModel):
     name: str
 

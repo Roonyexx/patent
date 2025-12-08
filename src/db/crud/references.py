@@ -1,6 +1,58 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from src.models.models import Employee, Author, RightsHolder, Status, PatentType, Position
+from src.models.models import Employee, Author, RightsHolder, Status, PatentType, Position, Passport
+
+
+async def get_passport(session: AsyncSession, passport_id: int):
+    """Get passport by ID"""
+    result = await session.execute(select(Passport).where(Passport.id == passport_id))
+    return result.scalars().first()
+
+
+async def get_passports(session: AsyncSession, skip: int = 0, limit: int = 100):
+    """Get list of passports"""
+    result = await session.execute(select(Passport).offset(skip).limit(limit))
+    return result.scalars().all()
+
+
+async def create_passport(session: AsyncSession, passport_data: dict):
+    """Create new passport"""
+    db_passport = Passport(
+        series=passport_data.get("series"),
+        number=passport_data.get("number"),
+        birth_date=passport_data.get("birth_date"),
+        birth_place=passport_data.get("birth_place"),
+        department_code=passport_data.get("department_code"),
+        issued_by=passport_data.get("issued_by")
+    )
+    session.add(db_passport)
+    await session.commit()
+    await session.refresh(db_passport)
+    return db_passport
+
+
+async def update_passport(session: AsyncSession, passport_id: int, update_data: dict):
+    """Update passport"""
+    db_passport = await get_passport(session, passport_id)
+    if not db_passport:
+        return None
+    
+    for key, value in update_data.items():
+        if value is not None:
+            setattr(db_passport, key, value)
+    
+    await session.commit()
+    await session.refresh(db_passport)
+    return db_passport
+
+
+async def delete_passport(session: AsyncSession, passport_id: int):
+    """Delete passport"""
+    db_passport = await get_passport(session, passport_id)
+    if db_passport:
+        await session.delete(db_passport)
+        await session.commit()
+    return db_passport
 
 
 async def get_employee(session: AsyncSession, employee_id: int):

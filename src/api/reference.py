@@ -1,19 +1,25 @@
 from fastapi import APIRouter, HTTPException
 from src.api.depends import SessionDep, CurrentUserDep
 from src.schemas.patent import (
-    Position, Author, AuthorBase,
+    Position, Author, AuthorBase, AuthorDetailed,
     RightsHolder, RightsHolderBase,
     Status, StatusBase,
     PatentType, PatentTypeBase,
-    Employee, EmployeeBase
+    Employee, EmployeeBase,
+    Passport, PassportBase,
+    PatentBrief, Application as ApplicationSchema
 )
 from src.db.crud.references import (
     get_employee, get_employees, create_employee, update_employee,
-    get_author, get_authors, create_author,
+    get_author, get_authors, create_author, update_author, delete_author,
+    get_passport, get_passports, create_passport, update_passport, delete_passport,
     get_rights_holder, get_rights_holders, create_rights_holder,
     get_status, get_statuses, create_status,
     get_patent_type, get_patent_types, create_patent_type, get_positions
 )
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+from src.models.models import Author as AuthorModel, Application, Patent, PatentAuthor
 
 router = APIRouter()
 
@@ -50,27 +56,111 @@ async def update_employee_details(employee_id: int, employee: EmployeeBase, sess
     return updated_employee
 
 
+@router.get("/passports/", response_model=list[Passport])
+async def list_passports(session: SessionDep, skip: int = 0, limit: int = 100):
+    """Get list of passports"""
+    passports = await get_passports(session, skip, limit)
+    return [Passport.from_orm(p) for p in passports]
+
+
+@router.get("/passports/{passport_id}", response_model=Passport)
+async def get_passport_details(passport_id: int, session: SessionDep):
+    """Get passport details"""
+    passport = await get_passport(session, passport_id)
+    if not passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    return Passport.from_orm(passport)
+
+
+@router.post("/passports/", response_model=Passport)
+async def create_new_passport(passport: PassportBase, session: SessionDep):
+    """Create passport"""
+    db_passport = await create_passport(session, passport.dict())
+    return Passport.from_orm(db_passport)
+
+
+@router.put("/passports/{passport_id}", response_model=Passport)
+async def update_passport_details(passport_id: int, passport: PassportBase, session: SessionDep):
+    """Update passport"""
+    updated_passport = await update_passport(session, passport_id, passport.dict(exclude_unset=True))
+    if not updated_passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    return Passport.from_orm(updated_passport)
+
+
+@router.delete("/passports/{passport_id}")
+async def delete_passport_by_id(passport_id: int, session: SessionDep):
+    """Delete passport"""
+    deleted_passport = await delete_passport(session, passport_id)
+    if not deleted_passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    return {"message": "Passport deleted successfully"}
+
+
 @router.get("/authors/", response_model=list[Author])
 async def list_authors(session: SessionDep, skip: int = 0, limit: int = 100):
     """Get list of authors"""
     authors = await get_authors(session, skip, limit)
-    return authors
+    return [Author.from_orm(a) for a in authors]
 
 
-@router.get("/authors/{author_id}", response_model=Author)
+@router.get("/authors/{author_id}", response_model=AuthorDetailed)
 async def get_author_details(author_id: int, session: SessionDep):
-    """Get author details"""
-    author = await get_author(session, author_id)
+    """Get detailed author information with passport, applications, and patents"""
+    result = await session.execute(
+        select(AuthorModel)
+        .where(AuthorModel.id == author_id)
+        .options(
+            selectinload(AuthorModel.passport),
+            selectinload(AuthorModel.patent_authors).selectinload(PatentAuthor.patent)
+        )
+    )
+    author = result.scalars().first()
+    
     if not author:
         raise HTTPException(status_code=404, detail="Author not found")
-    return author
+    
+    # Get applications for this author
+    apps_result = await session.execute(
+        select(Application)
+        .where(Application.author_id == author_id)
+        .options(selectinload(Application.status), selectinload(Application.patent))
+    )
+    applications = apps_result.scalars().all()
+    
+    # Get patents from patent_authors association
+    patents = [pa.patent for pa in author.patent_authors] if author.patent_authors else []
+    
+    author_dict = AuthorDetailed.from_orm(author).__dict__
+    author_dict['applications'] = [ApplicationSchema.from_orm(app) for app in applications]
+    author_dict['patents'] = [PatentBrief.from_orm(p) for p in patents]
+    
+    return AuthorDetailed(**author_dict)
 
 
 @router.post("/authors/", response_model=Author)
 async def create_new_author(author: AuthorBase, session: SessionDep):
     """Create author"""
     db_author = await create_author(session, author.dict())
-    return db_author
+    return Author.from_orm(db_author)
+
+
+@router.put("/authors/{author_id}", response_model=Author)
+async def update_author_details(author_id: int, author: AuthorBase, session: SessionDep):
+    """Update author"""
+    updated_author = await update_author(session, author_id, author.dict(exclude_unset=True))
+    if not updated_author:
+        raise HTTPException(status_code=404, detail="Author not found")
+    return Author.from_orm(updated_author)
+
+
+@router.delete("/authors/{author_id}")
+async def delete_author_by_id(author_id: int, session: SessionDep):
+    """Delete author"""
+    deleted_author = await delete_author(session, author_id)
+    if not deleted_author:
+        raise HTTPException(status_code=404, detail="Author not found")
+    return {"message": "Author deleted successfully"}
 
 @router.get("/rightsholders/", response_model=list[RightsHolder])
 async def list_rights_holders(session: SessionDep, skip: int = 0, limit: int = 100):
