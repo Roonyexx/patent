@@ -132,6 +132,7 @@ class ApplicationBase(BaseModel):
     documents: Optional[str] = None
     expert_conclusion: Optional[str] = None
     status_id: Optional[int] = None
+    author_id: Optional[int] = None
 
 
 class ApplicationCreate(ApplicationBase):
@@ -192,6 +193,7 @@ class PatentBase(BaseModel):
     description: Optional[str] = None
     rights_holder_id: Optional[int] = None
     patent_type_id: Optional[int] = None
+    status_id: Optional[int] = None
     application_id: int
 
 

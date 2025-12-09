@@ -26,6 +26,11 @@ def utc_test():
     print(datetime.utcnow())
     print(datetime.now(UTC).replace(tzinfo=None))
 
+def time_test():
+    today = datetime.today().date()
+    print(today)
+
 #datetime_format_test('20-14-2')
-login_test('mihail', '12345')
+#login_test('mihail', '12345')
 #utc_test()
+time_test()

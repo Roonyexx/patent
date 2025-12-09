@@ -69,20 +69,44 @@ class Client:
     def get_statuses(self):
         return self.make_request("GET", "/reference/statuses/")
 
+    def get_status(self, status_id: int):
+        return self.make_request("GET", f"/reference/statuses/{status_id}")
+
     def get_patent_types(self):
-        return self.make_request("GET", "/reference/types")
+        return self.make_request("GET", "/reference/types/")
 
     def get_employees(self):
         return self.make_request("GET", "/reference/employees")
 
+    def get_employee(self, id: int):
+        return self.make_request("GET", f"/reference/employees/{id}")
+
     def get_authors(self):
-        return self.make_request("GET", "/reference/authors")
+        return self.make_request("GET", "/reference/authors/")
+
+    def get_passports(self):
+        return self.make_request("GET", "/reference/passports/")
+
+    def create_passport(self, data: Dict):
+        return self.make_request("POST", "/reference/passports/", data=data)
+
+    def create_author(self, data: Dict):
+        return self.make_request("POST", "/reference/authors/", data=data)
 
     def get_rights_holders(self):
-        return self.make_request("GET", "/reference/rightsholders")
+        return self.make_request("GET", "/reference/rightsholders/")
+
+    def get_rights_holder(self, rights_holder_id: int):
+        return self.make_request("GET", f"/reference/rightsholders/{rights_holder_id}")
+
+    def create_rights_holder(self, data: Dict):
+        return self.make_request("POST", "/reference/rightsholders/", data=data)
 
     def get_applications(self):
         return self.make_request("GET", "/applications/")
+
+    def get_application(self, application_id: int):
+        return self.make_request("GET", f"/applications/{application_id}")
 
     def create_application(self, data: Dict):
         self.make_request("POST", "/applications/", data=data)
@@ -109,7 +133,62 @@ class Client:
         return self.make_request("GET", "/patents/expired")
 
     def get_activity_report(self):
-        return self.make_request("GET", "/analytics/activity")
+        return self.make_request("GET", "/analytics/activity-report")
 
     def get_statistics_by_author(self):
         return self.make_request("GET", "/analytics/by-author")
+
+    def get_statistics_by_year(self):
+        return self.make_request("GET", "/analytics/by-year")
+
+    def get_statistics_by_type(self):
+        return self.make_request("GET", "/analytics/by-type")
+
+    def get_employee_full_name(self, employee_id: int):
+        employee = self.get_employee(employee_id)
+        return employee['full_name']
+
+    def get_author_full_name(self, author_id: int):
+        authors = self.get_authors()
+
+        for author in authors:
+            if author['id'] == author_id:
+                return author['full_name']
+
+        return '-'
+
+    def get_patent_type_name(self, patent_type_id: int) -> str:
+        patent_types = self.get_patent_types()
+
+        for patent_type in patent_types:
+            if patent_type.get('id') == patent_type_id:
+                return patent_type.get('name')
+
+        return '-'
+
+    def get_status_id_by_name(self, name: str):
+        statuses = self.get_statuses()
+
+        for status in statuses:
+            if status.get('name') == name:
+                return status.get('id')
+
+        return -1
+
+    def get_patent_type_id_by_name(self, name: str):
+        patent_types = self.get_patent_types()
+
+        for patent_type in patent_types:
+            if patent_type.get('name') == name:
+                return patent_type.get('id')
+
+        return -1
+
+    def get_rights_holder_id_by_name(self, name: str):
+        rights_holders = self.get_rights_holders()
+
+        for rights_holder in rights_holders:
+            if rights_holder.get('name') == name:
+                return rights_holder.get('id')
+
+        return -1

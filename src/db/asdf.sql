@@ -181,27 +181,17 @@ CREATE INDEX "IX_PatentAuthor_author_id" ON "PatentAuthor" ("author_id");
 CREATE INDEX "IX_PatentAuthor_patent_id" ON "PatentAuthor" ("patent_id");
 
 INSERT INTO "Status" ("name") VALUES 
-  ('Создан'),
-  ('Черновик'),
-  ('Отправлен'),
   ('На рассмотрении'),
-  ('Одобрен'),
-  ('Отклонён'),
-  ('Активен'),
-  ('Истёкший'),
-  ('На исправлении'),
-  ('Отозван');
+  ('Одобрена'),
+  ('Отклонена'),
+  ('Истёк'),
+  ('Активен');
 
 INSERT INTO "Position" ("name") VALUES 
   ('Патентный эксперт'),
-  ('Начальник отдела'),
-  ('папочка');
+  ('Начальник отдела');
 
 INSERT INTO "PatentType" ("name") VALUES 
   ('Изобретение'),
   ('Полезная модель'),
   ('Промышленный образец');
-
-INSERT INTO "RightsHolder" ("id", "name") VALUES 
-  (0, 'Правообладатель отсутствует');
-

@@ -1,15 +1,33 @@
 import tkinter as tk
 from tkinter import messagebox
+from datetime import datetime, date, timedelta
 
 import src.client.ui.ui_extensions as ext
 from src.client.client import Client
 from src.client.ui.applications_window import ApplicationsWindow
 from src.client.ui.patents_window import PatentsWindow
-from src.client.ui.analytics_window import AnalyticsWindow
-from src.client.ui.references_window import ReferencesWindow
+from src.client.ui.export_window import ExportWindow
+from src.client.ui.notification_window import NotificationWindow
 
 
 WINDOW_SIZE = '1400x800'
+
+APPLICATION_PROCESSING_DEADLINE = 10
+
+def is_application_expired(submission_date: str):
+    if submission_date:
+        try:
+            formatted_submission_date = datetime.strptime(submission_date.split('T')[0], '%Y-%m-%d').date()
+            deadline_date = formatted_submission_date + timedelta(
+                days=APPLICATION_PROCESSING_DEADLINE)
+            print(deadline_date - formatted_submission_date)
+
+            if deadline_date >= date.today():
+                return False, (deadline_date - formatted_submission_date).days
+        except Exception as e:
+            print(str(e))
+
+    return True, 0
 
 
 class MainWindow:
@@ -48,10 +66,8 @@ class MainWindow:
                                                                                                         pady=(0, 5))
         tk.Button(sidebar_frame, text="Патенты", command=lambda: self.show_content("patents")).pack(fill=tk.X,
                                                                                                     pady=(0, 5))
-        tk.Button(sidebar_frame, text="Аналитика", command=lambda: self.show_content("analytics")).pack(fill=tk.X,
-                                                                                                        pady=(0, 5))
-        tk.Button(sidebar_frame, text="Справочники", command=lambda: self.show_content("references")).pack(fill=tk.X,
-                                                                                                           pady=(0, 5))
+        tk.Button(sidebar_frame, text="Уведомления", command=self.show_notification_window).pack(fill=tk.X, pady=(0, 5))
+        tk.Button(sidebar_frame, text="Экспорт отчетов", command=self.show_export_window).pack(fill=tk.X, pady=(0, 5))
 
         self.content_frame = tk.Frame(main_container)
         self.content_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -65,10 +81,28 @@ class MainWindow:
             self.content = ApplicationsWindow(self.content_frame, self.user, self.client)
         elif content_type == "patents":
             self.content = PatentsWindow(self.content_frame, self.client)
-        elif content_type == "analytics":
-            self.content = AnalyticsWindow(self.content_frame, self.client)
-        elif content_type == "references":
-            self.content = ReferencesWindow(self.content_frame, self.client)
+
+    def show_notification_window(self):
+        NotificationWindow(self.collect_notifications()).show()
+
+    def show_export_window(self):
+        ExportWindow(self.content_frame, self.client).show()
+
+    def collect_notifications(self):
+        notifications = []
+        applications = self.client.get_applications()
+
+        for application in applications:
+            submission_date = application.get('submission_date')
+            is_expired, days_left = is_application_expired(submission_date)
+
+            if not is_expired:
+                notifications.append({
+                    'id': application.get('id'),
+                    'days_left': days_left
+                })
+        return notifications
+
 
     def logout(self):
         if messagebox.askyesno("Выход", "Вы действительно хотите выйти?"):

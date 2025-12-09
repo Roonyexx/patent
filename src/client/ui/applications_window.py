@@ -2,8 +2,14 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 
-import src.client.config as config
 from src.client.client import Client
+
+
+ALL = 'Все'
+BY_DATE = 'По дате'
+
+ACTIVE_STATUS = 'Активен'
+EXPIRED_STATUS = 'Истёк'
 
 
 class ApplicationsWindow:
@@ -55,7 +61,7 @@ class ApplicationsWindow:
         horizontal_scrollbar = tk.Scrollbar(table_frame, orient="horizontal")
         horizontal_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
         
-        columns = ("id", "submission_date", "status", "documents", "employee_id", "author_id")
+        columns = ("id", "submission_date", "status", "documents", "employee", "author")
         self.tree = ttk.Treeview(
             table_frame,
             columns=columns,
@@ -72,16 +78,16 @@ class ApplicationsWindow:
         self.tree.heading("submission_date", text="Дата подачи")
         self.tree.heading("status", text="Статус")
         self.tree.heading("documents", text="Документы")
-        self.tree.heading("employee_id", text="ID Сотрудника")
-        self.tree.heading("author_id", text="ID Автора")
+        self.tree.heading("employee", text="Сотрудник")
+        self.tree.heading("author", text="Автор")
 
         self.tree.column("#0", width=0, stretch=False)
         self.tree.column("id", width=50, anchor=tk.CENTER)
         self.tree.column("submission_date", width=150, anchor=tk.CENTER)
         self.tree.column("status", width=150, anchor=tk.CENTER)
         self.tree.column("documents", width=300)
-        self.tree.column("employee_id", width=120, anchor=tk.CENTER)
-        self.tree.column("author_id", width=120, anchor=tk.CENTER)
+        self.tree.column("employee", width=120, anchor=tk.CENTER)
+        self.tree.column("author", width=120, anchor=tk.CENTER)
         
         self.tree.pack(fill=tk.BOTH, expand=True)
         self.tree.bind("<Double-1>", lambda e: self.view_application())
@@ -91,7 +97,7 @@ class ApplicationsWindow:
             self.applications = self.client.get_applications()
             self.statuses = self.client.get_statuses()
 
-            statuses_names = [s['name'] for s in self.statuses]
+            statuses_names = [s['name'] for s in self.statuses if s['name'] != ACTIVE_STATUS and s['name'] != EXPIRED_STATUS]
             combobox_values = ['Все'] + statuses_names + ['По дате']
 
             self.filter_combobox['values'] = combobox_values
@@ -114,14 +120,17 @@ class ApplicationsWindow:
                     submission_date = dt.strftime('%Y-%m-%d %H:%M')
                 except Exception as e:
                     messagebox.showerror('Ошибка', str(e))
+
+            employee_full_name = self.client.get_employee_full_name(app.get('employee_id'))
+            author_full_name = self.client.get_author_full_name(app.get('author_id'))
             
             values = (
                 app.get('id', ''),
                 submission_date,
                 status_name,
                 app.get('documents', '')[:50] + '...' if app.get('documents') and len(app.get('documents', '')) > 50 else app.get('documents', ''),
-                app.get('employee_id', '-'),
-                app.get('author_id', '-')
+                employee_full_name,
+                author_full_name
             )
             
             self.tree.insert("", tk.END, values=values, tags=(app.get('id'),))
@@ -144,14 +153,15 @@ class ApplicationsWindow:
                 except Exception as e:
                     messagebox.showwarning('Предупреждение', str(e))
 
-            if filter_param != "Все":
-                if status_name != filter_param and filter_param != 'По дате':
-                    continue
-
-                if search_text:
-                    if filter_param == 'По дате' and search_text != submission_date:
+            if filter_param != ALL:
+                if filter_param == BY_DATE and search_text:
+                    if search_text not in submission_date:
                         continue
-            
+
+                else:
+                    if filter_param != status_name:
+                        continue
+
             values = (
                 app.get('id', ''),
                 submission_date,
@@ -165,10 +175,20 @@ class ApplicationsWindow:
     
     def create_application(self):
         dialog = ApplicationDialog(self.parent_frame, self.statuses)
+        passport = self.create_passport(dialog.passport_payload)
 
-        if dialog.result:
+        if passport == -1:
+            return
+
+        author = self.create_author(dialog.author_payload, passport)
+
+        if author == -1:
+            return
+
+        if dialog.application_payload:
             try:
-                self.client.create_application(dialog.result)
+                dialog.application_payload['author_id'] = author.get('id')
+                self.client.create_application(dialog.application_payload)
                 messagebox.showinfo("Успех", "Заявка создана успешно!")
                 self.load_data()
             except Exception as e:
@@ -187,13 +207,75 @@ class ApplicationsWindow:
             return
         
         dialog = ApplicationDialog(self.parent_frame, self.statuses, app)
-        if dialog.result:
+        passport = self.create_passport(dialog.passport_payload)
+
+        if passport == -1:
+            return
+
+        author = self.create_author(dialog.author_payload, passport)
+
+        if author == -1:
+            return
+
+        if dialog.application_payload:
             try:
-                self.client.update_application(app_id, dialog.result)
+                dialog.application_payload['author_id'] = author.get('id')
+                self.client.update_application(app_id, dialog.application_payload)
                 messagebox.showinfo("Успех", "Заявка обновлена успешно!")
                 self.load_data()
             except Exception as e:
                 messagebox.showerror("Ошибка", f"Не удалось обновить заявку:\n{str(e)}")
+
+    def create_passport(self, payload):
+        if payload:
+            try:
+                series = payload.get('series')
+                number = payload.get('number')
+                is_exist, passport = self.is_passport_exist(series, number)
+
+                if not is_exist:
+                    return self.client.create_passport(payload)
+                return passport
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Не удалось добавить паспорт:\n{str(e)}")
+                return -1
+
+    def is_passport_exist(self, series: int, number: int):
+        passports = self.client.get_passports()
+
+        for passport in passports:
+            if passport.get('series') == series and passport.get('number') == number:
+                return True, passport
+        return False, {}
+
+    def create_author(self, payload, passport):
+        if payload:
+            try:
+                name = payload.get('name')
+                is_exist, author = self.is_author_exist(name, passport.get('id'))
+
+                if not is_exist:
+                    payload['passport_id'] = passport.get('id')
+                    return self.client.create_author(payload)
+
+                if author == -1:
+                    messagebox.showerror("Ошибка", f"Существует автор с таким паспортом, но другим именем")
+                    return -1
+
+                return author
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Не удалось добавить автора:\n{str(e)}")
+                return -1
+
+    def is_author_exist(self, name: str, passport_id: int):
+        authors = self.client.get_authors()
+
+        for author in authors:
+            if author.get('name') == name and author.get('passport_id') == passport_id:
+                return True, author
+            elif author.get('name') != name and author.get('passport_id') == passport_id:
+                return True, -1
+        return False, {}
     
     def view_application(self):
         selected = self.tree.selection()
@@ -205,20 +287,17 @@ class ApplicationsWindow:
         
         if not app:
             return
-        
-        # Создаем окно просмотра
+
         view_window = tk.Toplevel(self.parent_frame)
         view_window.title(f"Заявка #{app_id}")
         view_window.geometry("600x500")
-        
-        # Контент
-        main_frame = ttk.Frame(view_window, padding="20")
+
+        main_frame = tk.Frame(view_window)
         main_frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(main_frame, text=f"Заявка #{app_id}").pack(pady=(0, 20))
         
-        # Информация
-        ttk.Label(main_frame, text=f"Заявка #{app_id}", style="Title.TLabel").pack(pady=(0, 20))
-        
-        info_frame = ttk.Frame(main_frame)
+        info_frame = tk.Frame(main_frame)
         info_frame.pack(fill=tk.BOTH, expand=True)
         
         fields = [
@@ -232,20 +311,10 @@ class ApplicationsWindow:
         ]
         
         for i, (label, value) in enumerate(fields):
-            ttk.Label(info_frame, text=label, font=(config.FONT_FAMILY, config.FONT_SIZE_NORMAL, 'bold')).grid(
-                row=i, column=0, sticky=tk.W, pady=5, padx=(0, 10)
-            )
-            ttk.Label(info_frame, text=str(value)).grid(
-                row=i, column=1, sticky=tk.W, pady=5
-            )
+            tk.Label(info_frame, text=label).grid(row=i, column=0, sticky=tk.W, pady=5, padx=(0, 10))
+            tk.Label(info_frame, text=str(value)).grid(row=i, column=1, sticky=tk.W, pady=5)
         
-        # Кнопка закрытия
-        ttk.Button(
-            main_frame,
-            text="Закрыть",
-            style="Secondary.TButton",
-            command=view_window.destroy
-        ).pack(pady=(20, 0))
+        tk.Button(main_frame, text="Закрыть", command=view_window.destroy).pack(pady=(20, 0))
     
     def delete_application(self):
         selected = self.tree.selection()
@@ -280,7 +349,10 @@ class ApplicationDialog:
         self.documents_text = None
         self.conclusion_text = None
         self.status_combobox = None
-        self.result = None
+
+        self.passport_payload = None
+        self.author_payload = None
+        self.application_payload = None
         
         self.create_widgets()
         self.dialog.wait_window()
@@ -326,20 +398,52 @@ class ApplicationDialog:
 
         tk.Button(buttons_frame, text="Отмена", command=self.dialog.destroy).pack(side=tk.LEFT, expand=True,
                                                                                   fill=tk.X, padx=(5, 0))
-    
+
     def save(self):
-        data = {
-            "documents": self.documents_text.get('1.0', tk.END).strip()
-        }
+        if not self.full_name_var.get().strip():
+            messagebox.showwarning("Предупреждение", "Введите имя автора")
+            return
+
+        if not self.passport_var.get().strip():
+            messagebox.showwarning("Предупреждение", "Введите серию и номер паспорта")
+            return
+
+        is_valid, idents = self.is_passport_valid()
+
+        if not is_valid:
+            messagebox.showwarning("Предупреждение", "Неверная серия или номер паспорта")
+            return
+
+        if not self.status_combobox.get():
+            messagebox.showwarning("Предупреждение", "Укажите статус")
+            return
+
+        self.passport_payload = {'series': int(idents[0]), 'number': int(idents[1])}
+        self.author_payload = {'full_name': self.full_name_var.get().strip()}
+
+        if self.documents_text:
+            self.application_payload = {'documents': self.documents_text.get('1.0', tk.END).strip()}
 
         if self.conclusion_text:
-            data["expert_conclusion"] = self.conclusion_text.get('1.0', tk.END).strip()
+            self.application_payload["expert_conclusion"] = self.conclusion_text.get('1.0', tk.END).strip()
 
-        if self.status_combobox:
-            status_name = self.status_combobox.get()
-            status = next((s for s in self.statuses if s['name'] == status_name), None)
-            if status:
-                data["status_id"] = status['id']
-        
-        self.result = data
+        status_name = self.status_combobox.get()
+        status = next((s for s in self.statuses if s['name'] == status_name), None)
+
+        if status:
+            self.application_payload['status_id'] = status['id']
+
         self.dialog.destroy()
+
+    def is_passport_valid(self):
+        password_parts = self.passport_var.get().strip().split()
+
+        if len(password_parts) != 2:
+            return False, (0, 0)
+
+        series = password_parts[0]
+        number = password_parts[1]
+
+        if len(series) != 4 or len(number) != 6 or not series.isdigit() or not number.isdigit():
+            return False, (0, 0)
+        return True, (series, number)
