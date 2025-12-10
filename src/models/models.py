@@ -94,7 +94,7 @@ class Application(Base):
     status = relationship("Status", back_populates="applications")
     employee = relationship("Employee", back_populates="applications")
     author = relationship("Author")
-    patent = relationship("Patent", uselist=False, back_populates="application")
+    patent = relationship("Patent", uselist=False, back_populates="application", passive_deletes=True)
 
 
 class RightsHolder(Base):
@@ -126,7 +126,7 @@ class Patent(Base):
     rights_holder_id = Column(Integer, ForeignKey("RightsHolder.id", ondelete="RESTRICT", onupdate="RESTRICT"))
     patent_type_id = Column(Integer, ForeignKey("PatentType.id", ondelete="RESTRICT", onupdate="RESTRICT"))
     status_id = Column(Integer, ForeignKey("Status.id", ondelete="RESTRICT", onupdate="RESTRICT"))
-    application_id = Column(Integer, ForeignKey("Application.id", ondelete="CASCADE", onupdate="RESTRICT"), nullable=False)
+    application_id = Column(Integer, ForeignKey("Application.id", ondelete="CASCADE", onupdate="RESTRICT"), nullable=True)
     
     rights_holder = relationship("RightsHolder", back_populates="patents")
     patent_type = relationship("PatentType", back_populates="patents")
