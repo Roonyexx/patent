@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkcalendar import DateEntry
 from datetime import datetime
 
 from src.client.client import Client
@@ -174,7 +175,7 @@ class ApplicationsWindow:
             self.tree.insert("", tk.END, values=values, tags=(app.get('id'),))
     
     def create_application(self):
-        dialog = ApplicationDialog(self.parent_frame, self.statuses)
+        dialog = ApplicationDialog(self.parent_frame, self.client, self.statuses)
         passport = self.create_passport(dialog.passport_payload)
 
         if passport == -1:
@@ -206,7 +207,7 @@ class ApplicationsWindow:
         if not app:
             return
         
-        dialog = ApplicationDialog(self.parent_frame, self.statuses, app)
+        dialog = ApplicationDialog(self.parent_frame, self.client, self.statuses, app)
         passport = self.create_passport(dialog.passport_payload)
 
         if passport == -1:
@@ -333,22 +334,27 @@ class ApplicationsWindow:
                 messagebox.showerror("Ошибка", f"Не удалось удалить заявку:\n{str(e)}")
 
 
+DIALOG_SIZE = '400x550'
+
+
 class ApplicationDialog:
-    def __init__(self, parent, statuses, application=None):
+    def __init__(self, parent, client:Client, statuses, application=None):
+        self.client = client
         self.statuses = statuses
         self.application = application
 
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Создать заявку" if not application else "Редактировать заявку")
-        self.dialog.geometry("400x550")
+        self.dialog.geometry(DIALOG_SIZE)
         self.dialog.transient(parent)
         self.dialog.grab_set()
 
         self.full_name_var = tk.StringVar()
         self.passport_var = tk.StringVar()
+        self.status_var = tk.StringVar()
         self.documents_text = None
         self.conclusion_text = None
-        self.status_combobox = None
+        self.calendar = None
 
         self.passport_payload = None
         self.author_payload = None
@@ -358,39 +364,55 @@ class ApplicationDialog:
         self.dialog.wait_window()
     
     def create_widgets(self):
-        main_frame = ttk.Frame(self.dialog, padding="20")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        frame = ttk.Frame(self.dialog, padding="20")
+        frame.pack(fill=tk.BOTH, expand=True)
 
-        tk.Label(main_frame, text="ФИО автора:").pack(anchor=tk.W, pady=(0, 5))
-        tk.Entry(main_frame, textvariable=self.full_name_var).pack(fill=tk.X, pady=(0, 15))
+        tk.Label(frame, text="ФИО автора:").pack(anchor=tk.W, pady=(0, 5))
+        full_name_entry = tk.Entry(frame, textvariable=self.full_name_var)
+        full_name_entry.pack(fill=tk.X, pady=(0, 15))
 
-        tk.Label(main_frame, text="Серия и номер паспорта (через пробел):").pack(anchor=tk.W, pady=(0, 5))
-        tk.Entry(main_frame, textvariable=self.passport_var).pack(fill=tk.X, pady=(0, 15))
+        tk.Label(frame, text="Серия и номер паспорта (через пробел):").pack(anchor=tk.W, pady=(0, 5))
+        passport_entry = tk.Entry(frame, textvariable=self.passport_var)
+        passport_entry.pack(fill=tk.X, pady=(0, 15))
 
-        tk.Label(main_frame, text="Документы:").pack(anchor=tk.W, pady=(0, 5))
+        tk.Label(frame, text="Дата подачи:").pack(anchor=tk.W, pady=(0, 5))
+        self.calendar = DateEntry(frame, selectmode='day', date_pattern='yyyy-mm-dd')
+        self.calendar.pack(fill=tk.X, pady=(0, 15))
+
+        tk.Label(frame, text="Документы:").pack(anchor=tk.W, pady=(0, 5))
         documents_var = tk.StringVar(value=self.application.get('documents', '') if self.application else '')
-        self.documents_text = tk.Text(main_frame, height=5)
+        self.documents_text = tk.Text(frame, height=5)
         self.documents_text.pack(fill=tk.X, pady=(0, 15))
         self.documents_text.insert('1.0', documents_var.get())
 
-        tk.Label(main_frame, text="Заключение эксперта:").pack(anchor=tk.W, pady=(0, 5))
+        tk.Label(frame, text="Заключение эксперта:").pack(anchor=tk.W, pady=(0, 5))
         conclusion_var = tk.StringVar(value=self.application.get('expert_conclusion', '') if self.application else '')
-        self.conclusion_text = tk.Text(main_frame, height=5)
+        self.conclusion_text = tk.Text(frame, height=5)
         self.conclusion_text.pack(fill=tk.X, pady=(0, 15))
         self.conclusion_text.insert('1.0', conclusion_var.get())
 
-        tk.Label(main_frame, text="Статус:").pack(anchor=tk.W, pady=(0, 5))
-        status_var = tk.StringVar()
-        combobox_values = [s['name'] for s in self.statuses]
-        self.status_combobox = ttk.Combobox(main_frame, textvariable=status_var, state="readonly", values=combobox_values)
-        self.status_combobox.pack(fill=tk.X, pady=(0, 15))
+        tk.Label(frame, text="Статус:").pack(anchor=tk.W, pady=(0, 5))
+        combobox_values = self.get_status_names()
+        status_combobox = ttk.Combobox(frame, textvariable=self.status_var, state="readonly", values=combobox_values)
+        status_combobox.pack(fill=tk.X, pady=(0, 15))
 
-        if self.application and self.application.get('status'):
-            self.status_combobox.set(self.application['status']['name'])
-        elif self.statuses:
-            self.status_combobox.current(0)
+        if self.application:
+            print(self.application)
 
-        buttons_frame = tk.Frame(main_frame)
+            author = self.client.get_author(self.application.get('author_id'))
+            print(author)
+
+            full_name_entry.insert(0, author.get('full_name'))
+
+            passport_series = author.get('passport').get('series')
+            passport_number = author.get('passport').get('number')
+            passport_entry.insert(0, f'{passport_series} {passport_number}')
+
+            status_combobox.set(self.application.get('status').get('name'))
+        else:
+            status_combobox.set(combobox_values[0])
+
+        buttons_frame = tk.Frame(frame)
         buttons_frame.pack(fill=tk.X, pady=(20, 0))
         
         tk.Button(buttons_frame, text="Сохранить", command=self.save).pack(side=tk.LEFT, expand=True, fill=tk.X,
@@ -398,6 +420,9 @@ class ApplicationDialog:
 
         tk.Button(buttons_frame, text="Отмена", command=self.dialog.destroy).pack(side=tk.LEFT, expand=True,
                                                                                   fill=tk.X, padx=(5, 0))
+
+    def get_status_names(self):
+        return [s.get('name') for s in self.statuses if s.get('name') not in [ACTIVE_STATUS, EXPIRED_STATUS]]
 
     def save(self):
         if not self.full_name_var.get().strip():
@@ -414,8 +439,14 @@ class ApplicationDialog:
             messagebox.showwarning("Предупреждение", "Неверная серия или номер паспорта")
             return
 
-        if not self.status_combobox.get():
+        if not self.status_var.get().strip():
             messagebox.showwarning("Предупреждение", "Укажите статус")
+            return
+
+        status_id = self.get_status_id_by_name()
+
+        if status_id == -1:
+            messagebox.showwarning("Предупреждение", "Не существует статуса с таким названием")
             return
 
         self.passport_payload = {'series': int(idents[0]), 'number': int(idents[1])}
@@ -427,12 +458,8 @@ class ApplicationDialog:
         if self.conclusion_text:
             self.application_payload["expert_conclusion"] = self.conclusion_text.get('1.0', tk.END).strip()
 
-        status_name = self.status_combobox.get()
-        status = next((s for s in self.statuses if s['name'] == status_name), None)
-
-        if status:
-            self.application_payload['status_id'] = status['id']
-
+        self.author_payload['submission_date'] = self.calendar.get()
+        self.application_payload['status_id'] = status_id
         self.dialog.destroy()
 
     def is_passport_valid(self):
@@ -447,3 +474,9 @@ class ApplicationDialog:
         if len(series) != 4 or len(number) != 6 or not series.isdigit() or not number.isdigit():
             return False, (0, 0)
         return True, (series, number)
+
+    def get_status_id_by_name(self):
+        for status in self.statuses:
+            if status.get('name') == self.status_var.get().strip():
+                return status.get('id')
+        return -1

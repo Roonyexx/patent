@@ -131,6 +131,7 @@ class Employee(EmployeeBase):
 class ApplicationBase(BaseModel):
     documents: Optional[str] = None
     expert_conclusion: Optional[str] = None
+    submission_date: Optional[date] = None
     status_id: Optional[int] = None
     author_id: Optional[int] = None
 

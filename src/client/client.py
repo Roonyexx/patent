@@ -78,11 +78,14 @@ class Client:
     def get_employees(self):
         return self.make_request("GET", "/reference/employees")
 
-    def get_employee(self, id: int):
-        return self.make_request("GET", f"/reference/employees/{id}")
+    def get_employee(self, employee_id: int):
+        return self.make_request("GET", f"/reference/employees/{employee_id}")
 
     def get_authors(self):
         return self.make_request("GET", "/reference/authors/")
+
+    def get_author(self, author_id: int):
+        return self.make_request("GET", f"/reference/authors/{author_id}")
 
     def get_passports(self):
         return self.make_request("GET", "/reference/passports/")

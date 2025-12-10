@@ -246,7 +246,8 @@ class PatentsWindow:
             messagebox.showerror("Ошибка", f"Не удалось загрузить истекшие патенты:\n{str(e)}")
     
     def create_patent(self):
-        dialog = PatentDialog(self.parent_frame, self.client, self.patent_types, self.statuses, self.applications, self.patents)
+        dialog = PatentDialog(self.parent_frame, self.client, self.patent_types, self.statuses, self.applications,
+                              self.patents)
         rights_holder = self.create_rights_holder(dialog.rights_holder_payload)
 
         if rights_holder == -1:
@@ -275,7 +276,8 @@ class PatentsWindow:
         if not patent:
             return
         
-        dialog = PatentDialog(self.parent_frame, self.client, self.patent_types, self.statuses, self.applications, patent)
+        dialog = PatentDialog(self.parent_frame, self.client, self.patent_types, self.statuses, self.applications,
+                              self.patents, patent)
         rights_holder = self.create_rights_holder(dialog.rights_holder_payload)
 
         if rights_holder == -1:
