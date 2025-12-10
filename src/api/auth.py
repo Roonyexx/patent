@@ -7,9 +7,10 @@ from src.schemas.patent import (
 from src.db.crud.user import (
     get_user_by_username, get_user_by_email, create_user, get_user_by_id
 )
+
 from src.db.crud.references import (
-    get_employee, get_author, get_position, 
-    create_employee_internal, create_author_internal
+    get_employee, get_author, get_position,
+    create_employee, create_author
 )
 from src.core.security import (
     hash_password, verify_password, create_access_token, create_refresh_token,
@@ -27,8 +28,8 @@ async def health_check():
 
 @router.post("/register", response_model=TokenResponse)
 async def register(
-    registration: UserRegister,
-    session: SessionDep
+        registration: UserRegister,
+        session: SessionDep
 ):
     """Register new user (employee or author)"""
     existing_user = await get_user_by_username(session, registration.username)
@@ -37,7 +38,7 @@ async def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already registered"
         )
-    
+
     existing_email = await get_user_by_email(session, str(registration.email))
     if existing_email:
         raise HTTPException(
@@ -50,18 +51,18 @@ async def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="user_type must be 'employee' or 'author'"
         )
-    
+
 
     if not registration.full_name:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="full_name is required"
         )
-    
+
     employee_id = None
     author_id = None
     position_name = None
-    
+
     if registration.user_type == "employee":
         if not registration.position_id:
             raise HTTPException(
@@ -77,7 +78,7 @@ async def register(
             )
         position_name = position.name
 
-        employee = await create_employee_internal(
+        employee = await create_employee(
             session,
             full_name=registration.full_name,
             employment_date=registration.employment_date,
@@ -85,14 +86,15 @@ async def register(
             position_id=registration.position_id
         )
         employee_id = employee.id
-        
-    else:  
-        author = await create_author_internal(
+
+    else:
+
+        author = await create_author(
             session,
             full_name=registration.full_name
         )
         author_id = author.id
-    
+
     new_user = await create_user(
         session=session,
         email=str(registration.email),
@@ -111,9 +113,9 @@ async def register(
         employee_id=employee_id,
         author_id=author_id
     )
-    
+
     refresh_token = create_refresh_token(new_user.id, new_user.username)
-    
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -126,8 +128,8 @@ async def register(
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
-    credentials: UserLogin,
-    session: SessionDep
+        credentials: UserLogin,
+        session: SessionDep
 ):
     """Login with username and password"""
     user = await get_user_by_username(session, credentials.username)
@@ -137,25 +139,25 @@ async def login(
             detail="Invalid credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     if not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is deactivated"
         )
-    
+
     position_name = None
     # if user.user_type == "employee" and user.employee:
     #     if user.employee.position:
     #         position_name = user.employee.position.name
-    
+
     access_token = create_access_token(
         user_id=user.id,
         username=user.username,
@@ -164,9 +166,9 @@ async def login(
         employee_id=user.employee_id,
         author_id=user.author_id
     )
-    
+
     refresh_token = create_refresh_token(user.id, user.username)
-    
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -179,8 +181,8 @@ async def login(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_access_token(
-    refresh_request: TokenRefresh,
-    session: SessionDep
+        refresh_request: TokenRefresh,
+        session: SessionDep
 ):
     """
     Refresh access token using refresh token
@@ -191,19 +193,19 @@ async def refresh_access_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
         )
-    
+
     user = await get_user_by_id(session, token_data.user_id)
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive"
         )
-    
+
     position_name = None
     if user.user_type == "employee" and user.employee:
         if user.employee.position:
             position_name = user.employee.position.name
-    
+
     access_token = create_access_token(
         user_id=user.id,
         username=user.username,
@@ -213,7 +215,7 @@ async def refresh_access_token(
         employee_id=user.employee_id,
         author_id=user.author_id
     )
-    
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_request.refresh_token,
@@ -226,8 +228,8 @@ async def refresh_access_token(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
-    current_user: CurrentUserDep,
-    session: SessionDep
+        current_user: CurrentUserDep,
+        session: SessionDep
 ):
     """Get current user information from JWT token"""
     user = await get_user_by_id(session, current_user.user_id)
@@ -236,7 +238,7 @@ async def get_current_user_info(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
+
     return UserResponse(
         id=user.id,
         email=user.email,
@@ -250,9 +252,3 @@ async def get_current_user_info(
 @router.post("/logout")
 async def logout(current_user: CurrentUserDep):
     return {"message": f"User {current_user.username} logged out successfully"}
-
-
-
-
-
-
