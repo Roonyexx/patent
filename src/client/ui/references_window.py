@@ -74,7 +74,16 @@ class ReferencesWindow:
     def get_passport_string(self, passport_id):
         for p in self.passports:
             if p['id'] == passport_id:
-                return f"{p['series']} {p['number']}"
+                passport_series = str(p.get('series'))
+
+                for _ in range(4 - len(passport_series)):
+                    passport_series = '0' + passport_series
+
+                passport_number = str(p.get('number'))
+
+                for _ in range(6 - len(passport_number)):
+                    passport_number = '0' + passport_number
+                return f"{passport_series} {passport_number}"
         return str(passport_id)
 
     def create_employees_tab(self):
