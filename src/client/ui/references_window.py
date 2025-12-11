@@ -280,7 +280,7 @@ class ReferencesWindow:
         toolbar_frame = ttk.Frame(self.authors_frame)
         toolbar_frame.pack(fill=tk.X, pady=(0, 10))
 
-        ttk.Button(toolbar_frame, text="Создать автора", command=self.create_author).pack(side=tk.LEFT, padx=(0, 5))
+        #ttk.Button(toolbar_frame, text="Создать автора", command=self.create_author).pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(toolbar_frame, text="Редактировать", command=self.edit_author).pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(toolbar_frame, text="Удалить", command=self.delete_author).pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(toolbar_frame, text="Обновить", command=self.load_authors).pack(side=tk.LEFT, padx=(0, 5))
