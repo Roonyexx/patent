@@ -36,11 +36,11 @@ async def update_passport(session: AsyncSession, passport_id: int, update_data: 
     db_passport = await get_passport(session, passport_id)
     if not db_passport:
         return None
-    
+
     for key, value in update_data.items():
         if value is not None:
             setattr(db_passport, key, value)
-    
+
     await session.commit()
     await session.refresh(db_passport)
     return db_passport
@@ -61,9 +61,33 @@ async def get_employee(session: AsyncSession, employee_id: int):
     return result.scalars().first()
 
 
-async def get_employees(session: AsyncSession, skip: int = 0, limit: int = 100):
-    """Get list of employees"""
-    result = await session.execute(select(Employee).offset(skip).limit(limit))
+async def get_employees(
+        session: AsyncSession,
+        full_name: str = None,
+        passport_series: int = None,
+        passport_number: int = None,
+        position_id: int = None,
+        skip: int = 0,
+        limit: int = 100
+):
+    """Get list of employees with optional filtering"""
+    query = select(Employee)
+
+    if full_name:
+        query = query.where(Employee.full_name.ilike(f"%{full_name}%"))
+
+    if position_id:
+        query = query.where(Employee.position_id == position_id)
+
+    if passport_series or passport_number:
+        query = query.join(Passport, Employee.passport_id == Passport.id)
+        if passport_series:
+            query = query.where(Passport.series == passport_series)
+        if passport_number:
+            query = query.where(Passport.number == passport_number)
+
+    query = query.offset(skip).limit(limit)
+    result = await session.execute(query)
     return result.scalars().all()
 
 
@@ -88,11 +112,11 @@ async def update_employee(session: AsyncSession, employee_id: int, update_data: 
     db_employee = await get_employee(session, employee_id)
     if not db_employee:
         return None
-    
+
     for key, value in update_data.items():
         if value is not None:
             setattr(db_employee, key, value)
-    
+
     await session.commit()
     await session.refresh(db_employee)
     return db_employee
@@ -113,9 +137,29 @@ async def get_author(session: AsyncSession, author_id: int):
     return result.scalars().first()
 
 
-async def get_authors(session: AsyncSession, skip: int = 0, limit: int = 100):
-    """Get list of authors"""
-    result = await session.execute(select(Author).offset(skip).limit(limit))
+async def get_authors(
+        session: AsyncSession,
+        full_name: str = None,
+        passport_series: int = None,
+        passport_number: int = None,
+        skip: int = 0,
+        limit: int = 100
+):
+    """Get list of authors with optional filtering"""
+    query = select(Author)
+
+    if full_name:
+        query = query.where(Author.full_name.ilike(f"%{full_name}%"))
+
+    if passport_series or passport_number:
+        query = query.join(Passport, Author.passport_id == Passport.id)
+        if passport_series:
+            query = query.where(Passport.series == passport_series)
+        if passport_number:
+            query = query.where(Passport.number == passport_number)
+
+    query = query.offset(skip).limit(limit)
+    result = await session.execute(query)
     return result.scalars().all()
 
 
@@ -136,11 +180,11 @@ async def update_author(session: AsyncSession, author_id: int, update_data: dict
     db_author = await get_author(session, author_id)
     if not db_author:
         return None
-    
+
     for key, value in update_data.items():
         if value is not None:
             setattr(db_author, key, value)
-    
+
     await session.commit()
     await session.refresh(db_author)
     return db_author
@@ -183,11 +227,11 @@ async def update_rights_holder(session: AsyncSession, holder_id: int, update_dat
     db_holder = await get_rights_holder(session, holder_id)
     if not db_holder:
         return None
-    
+
     for key, value in update_data.items():
         if value is not None:
             setattr(db_holder, key, value)
-    
+
     await session.commit()
     await session.refresh(db_holder)
     return db_holder
@@ -230,11 +274,11 @@ async def update_status(session: AsyncSession, status_id: int, update_data: dict
     db_status = await get_status(session, status_id)
     if not db_status:
         return None
-    
+
     for key, value in update_data.items():
         if value is not None:
             setattr(db_status, key, value)
-    
+
     await session.commit()
     await session.refresh(db_status)
     return db_status
@@ -277,11 +321,11 @@ async def update_patent_type(session: AsyncSession, type_id: int, update_data: d
     db_type = await get_patent_type(session, type_id)
     if not db_type:
         return None
-    
+
     for key, value in update_data.items():
         if value is not None:
             setattr(db_type, key, value)
-    
+
     await session.commit()
     await session.refresh(db_type)
     return db_type
@@ -320,11 +364,11 @@ async def create_position(session: AsyncSession, position_data: dict):
 
 
 async def create_employee_internal(
-    session: AsyncSession,
-    full_name: str,
-    position_id: int,
-    employment_date=None,
-    phone_number=None
+        session: AsyncSession,
+        full_name: str,
+        position_id: int,
+        employment_date=None,
+        phone_number=None
 ):
     """
     Create employee record during registration
@@ -343,12 +387,12 @@ async def create_employee_internal(
 
 
 async def create_author_internal(
-    session: AsyncSession,
-    full_name: str
+        session: AsyncSession,
+        full_name: str
 ):
     """
     Create author record during registration
-    Used internally by auth.register endpoint
+
     """
     db_author = Author(
         full_name=full_name

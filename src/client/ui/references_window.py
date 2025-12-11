@@ -6,421 +6,509 @@ from src.client.client import Client
 
 
 class ReferencesWindow:
-    """Окно для работы со справочниками"""
-    
+
     def __init__(self, parent_frame, api_client: Client):
         self.parent_frame = parent_frame
         self.api_client = api_client
-        
+
+
+        self.employees = []
+        self.authors = []
+
+        self.positions = []
+        self.passports = []
+
+        self.emp_full_name_var = tk.StringVar()
+        self.emp_passport_var = tk.StringVar()
+        self.emp_position_var = tk.StringVar()
+
+        self.author_search_var = tk.StringVar()
+        self.author_passport_var = tk.StringVar()
+
         self.create_widgets()
+        self.load_positions()
+        self.load_passports()
         self.load_data()
-    
+
     def create_widgets(self):
-        """Создать виджеты"""
-        # Заголовок
         header_frame = ttk.Frame(self.parent_frame)
         header_frame.pack(fill=tk.X, pady=(0, 20))
-        
+
         title_label = ttk.Label(
             header_frame,
-            text="Справочники",
+            text="",
             style="Subtitle.TLabel"
         )
         title_label.pack(side=tk.LEFT)
-        
-        # Вкладки
+
         self.notebook = ttk.Notebook(self.parent_frame)
         self.notebook.pack(fill=tk.BOTH, expand=True)
-        
-        # Вкладка: Сотрудники
+
         self.employees_frame = ttk.Frame(self.notebook, padding="10")
         self.notebook.add(self.employees_frame, text="Сотрудники")
-        
-        # Вкладка: Авторы
+
         self.authors_frame = ttk.Frame(self.notebook, padding="10")
         self.notebook.add(self.authors_frame, text="Авторы")
-        
-        # Вкладка: Статусы
-        self.statuses_frame = ttk.Frame(self.notebook, padding="10")
-        self.notebook.add(self.statuses_frame, text="Статусы")
-        
-        # Вкладка: Типы патентов
-        self.types_frame = ttk.Frame(self.notebook, padding="10")
-        self.notebook.add(self.types_frame, text="Типы патентов")
-        
-        # Вкладка: Правообладатели
-        self.holders_frame = ttk.Frame(self.notebook, padding="10")
-        self.notebook.add(self.holders_frame, text="Правообладатели")
-        
-        # Создаем содержимое вкладок
+
         self.create_employees_tab()
         self.create_authors_tab()
-        self.create_statuses_tab()
-        self.create_types_tab()
-        self.create_holders_tab()
-    
+
+    def load_positions(self):
+        try:
+            self.positions = self.api_client.get_positions()
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось загрузить должности:\n{str(e)}")
+
+    def load_passports(self):
+        try:
+            self.passports = self.api_client.get_passports()
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось загрузить паспорта:\n{str(e)}")
+
+    def get_position_name(self, position_id):
+        for p in self.positions:
+            if p['id'] == position_id:
+                return p['name']
+        return str(position_id)
+
+    def get_passport_string(self, passport_id):
+        for p in self.passports:
+            if p['id'] == passport_id:
+                return f"{p['series']} {p['number']}"
+        return str(passport_id)
+
     def create_employees_tab(self):
-        """Создать вкладку сотрудников"""
-        # Toolbar
-        toolbar = ttk.Frame(self.employees_frame)
-        toolbar.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Button(
-            toolbar,
-            text="🔄 Обновить",
-            style="Secondary.TButton",
-            command=self.load_employees
-        ).pack(side=tk.LEFT, padx=(0, 5))
-        
-        # Таблица
+        toolbar_frame = ttk.Frame(self.employees_frame)
+        toolbar_frame.pack(fill=tk.X, pady=(0, 10))
+
+        ttk.Button(toolbar_frame, text="Редактировать", command=self.edit_employee).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(toolbar_frame, text="Удалить", command=self.delete_employee).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(toolbar_frame, text="Обновить", command=self.load_employees).pack(side=tk.LEFT, padx=(0, 5))
+
+        filter_frame = ttk.Frame(self.employees_frame)
+        filter_frame.pack(fill=tk.X, pady=(0, 10))
+
+        ttk.Label(filter_frame, text="ФИО:").pack(side=tk.LEFT, padx=(0, 5))
+        self.emp_full_name_var.trace('w', lambda *args: self.filter_employees())
+        ttk.Entry(filter_frame, textvariable=self.emp_full_name_var, width=20).pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Label(filter_frame, text="Паспорт (серия номер):").pack(side=tk.LEFT, padx=(0, 5))
+        self.emp_passport_var.trace('w', lambda *args: self.filter_employees())
+        ttk.Entry(filter_frame, textvariable=self.emp_passport_var, width=15).pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Label(filter_frame, text="Должность:").pack(side=tk.LEFT, padx=(0, 5))
+        positions_names = [p['name'] for p in self.positions] if self.positions else []
+        self.emp_position_var.trace('w', lambda *args: self.filter_employees())
+        ttk.Combobox(filter_frame, textvariable=self.emp_position_var, values=positions_names, width=20).pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Button(filter_frame, text="Применить фильтры", command=self.filter_employees).pack(side=tk.LEFT)
+
         table_frame = ttk.Frame(self.employees_frame)
         table_frame.pack(fill=tk.BOTH, expand=True)
-        
+
         vsb = ttk.Scrollbar(table_frame, orient="vertical")
         vsb.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        columns = ("id", "full_name", "employment_date", "phone_number", "position_id")
+
+        columns = ("id", "full_name", "employment_date", "phone_number", "position", "passport")
         self.employees_tree = ttk.Treeview(
             table_frame,
             columns=columns,
             show="tree headings",
             yscrollcommand=vsb.set
         )
-        
         vsb.config(command=self.employees_tree.yview)
-        
+
         self.employees_tree.heading("#0", text="")
         self.employees_tree.heading("id", text="ID")
         self.employees_tree.heading("full_name", text="ФИО")
         self.employees_tree.heading("employment_date", text="Дата трудоустройства")
         self.employees_tree.heading("phone_number", text="Телефон")
-        self.employees_tree.heading("position_id", text="ID Должности")
-        
+        self.employees_tree.heading("position", text="Должность")
+        self.employees_tree.heading("passport", text="Паспорт")
+
         self.employees_tree.column("#0", width=0, stretch=False)
         self.employees_tree.column("id", width=50, anchor=tk.CENTER)
-        self.employees_tree.column("full_name", width=250)
-        self.employees_tree.column("employment_date", width=150, anchor=tk.CENTER)
-        self.employees_tree.column("phone_number", width=150)
-        self.employees_tree.column("position_id", width=100, anchor=tk.CENTER)
-        
+        self.employees_tree.column("full_name", width=200)
+        self.employees_tree.column("employment_date", width=120, anchor=tk.CENTER)
+        self.employees_tree.column("phone_number", width=120)
+        self.employees_tree.column("position", width=150)
+        self.employees_tree.column("passport", width=120)
+
         self.employees_tree.pack(fill=tk.BOTH, expand=True)
-    
+        self.employees_tree.bind("<Double-1>", lambda e: self.view_employee())
+
+    def load_employees(self):
+        try:
+            self.employees = self.api_client.get_employees()
+            self.update_employees_table()
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось загрузить сотрудников:\n{str(e)}")
+
+    def update_employees_table(self):
+        for item in self.employees_tree.get_children():
+            self.employees_tree.delete(item)
+
+        for emp in self.employees:
+            values = (
+                emp.get('id', ''),
+                emp.get('full_name', ''),
+                emp.get('employment_date', ''),
+                emp.get('phone_number', ''),
+                self.get_position_name(emp.get('position_id')),
+                self.get_passport_string(emp.get('passport_id'))
+            )
+            self.employees_tree.insert("", tk.END, values=values)
+
+    def filter_employees(self):
+        search_full_name = self.emp_full_name_var.get().lower()
+        search_passport = self.emp_passport_var.get().strip()
+        search_position_name = self.emp_position_var.get()
+
+        search_position_id = next((p['id'] for p in self.positions if p['name'] == search_position_name), None) if search_position_name else None
+
+        filtered = []
+        for emp in self.employees:
+            if search_full_name and search_full_name not in (emp.get('full_name') or '').lower():
+                continue
+
+            if search_passport:
+                passport_str = self.get_passport_string(emp.get('passport_id'))
+                if search_passport not in passport_str:
+                    continue
+
+            if search_position_id and search_position_id != emp.get('position_id'):
+                continue
+
+            filtered.append(emp)
+
+        for item in self.employees_tree.get_children():
+            self.employees_tree.delete(item)
+
+        for emp in filtered:
+            values = (
+                emp.get('id', ''),
+                emp.get('full_name', ''),
+                emp.get('employment_date', ''),
+                emp.get('phone_number', ''),
+                self.get_position_name(emp.get('position_id')),
+                self.get_passport_string(emp.get('passport_id'))
+            )
+            self.employees_tree.insert("", tk.END, values=values)
+
+    def edit_employee(self):
+        selected = self.employees_tree.selection()
+        if not selected:
+            messagebox.showwarning("Предупреждение", "Выберите сотрудника для редактирования")
+            return
+
+        emp_id = int(self.employees_tree.item(selected[0])['values'][0])
+        emp = next((e for e in self.employees if e['id'] == emp_id), None)
+
+        if not emp:
+            return
+
+        dialog = EmployeeDialog(self.parent_frame, self.positions, self.passports, emp, self.api_client)
+        if dialog.employee_payload:
+            try:
+                self.api_client.update_employee(emp_id, dialog.employee_payload)
+                messagebox.showinfo("Успех", "Сотрудник обновлен успешно!")
+                self.load_passports()
+                self.load_employees()
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Не удалось обновить сотрудника:\n{str(e)}")
+
+    def delete_employee(self):
+        current_employee_id = self.user.get("employee_id") or self.user.get("id")
+        selected = self.employees_tree.selection()
+        if not selected:
+            messagebox.showwarning("Предупреждение", "Выберите сотрудника для удаления")
+            return
+
+        emp_id = int(self.employees_tree.item(selected[0])['values'][0])
+
+        if self.user.get('user_type') == 'employee' and emp_id == self.user.get('employee_id'):
+            messagebox.showwarning("Предупреждение", "Нельзя удалить сотрудника, так как произведен вход под его учетной записью")
+            return
+
+        if messagebox.askyesno("Подтверждение", f"Вы уверены, что хотите удалить сотрудника #{emp_id}?"):
+            try:
+                self.api_client.delete_employee(emp_id)
+                messagebox.showinfo("Успех", "Сотрудник удален успешно!")
+                self.load_employees()
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Не удалось удалить сотрудника:\n{str(e)}")
+
+    def view_employee(self):
+        selected = self.employees_tree.selection()
+        if not selected:
+            return
+
+        emp_id = int(self.employees_tree.item(selected[0])['values'][0])
+        emp = next((e for e in self.employees if e['id'] == emp_id), None)
+
+        if not emp:
+            return
+
+        view_window = tk.Toplevel(self.parent_frame)
+        view_window.title(f"Сотрудник #{emp_id}")
+        view_window.geometry("600x400")
+
+        main_frame = tk.Frame(view_window)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(main_frame, text=f"Сотрудник #{emp_id}").pack(pady=(0, 20))
+
+        info_frame = tk.Frame(main_frame)
+        info_frame.pack(fill=tk.BOTH, expand=True)
+
+        fields = [
+            ("ID:", emp.get('id', '')),
+            ("ФИО:", emp.get('full_name', '')),
+            ("Дата трудоустройства:", emp.get('employment_date', '')),
+            ("Телефон:", emp.get('phone_number', '')),
+            ("Должность:", self.get_position_name(emp.get('position_id'))),
+            ("Паспорт:", self.get_passport_string(emp.get('passport_id'))),
+        ]
+
+        for i, (label, value) in enumerate(fields):
+            tk.Label(info_frame, text=label).grid(row=i, column=0, sticky=tk.W, pady=5, padx=(0, 10))
+            tk.Label(info_frame, text=str(value)).grid(row=i, column=1, sticky=tk.W, pady=5)
+
+        tk.Button(main_frame, text="Закрыть", command=view_window.destroy).pack(pady=(20, 0))
+
     def create_authors_tab(self):
-        """Создать вкладку авторов"""
-        # Toolbar
-        toolbar = ttk.Frame(self.authors_frame)
-        toolbar.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Button(
-            toolbar,
-            text="🔄 Обновить",
-            style="Secondary.TButton",
-            command=self.load_authors
-        ).pack(side=tk.LEFT, padx=(0, 5))
-        
-        # Поиск по ФИО
-        ttk.Label(toolbar, text="Поиск по ФИО:").pack(side=tk.LEFT, padx=(20, 5))
-        
-        self.author_search_var = tk.StringVar()
+        toolbar_frame = ttk.Frame(self.authors_frame)
+        toolbar_frame.pack(fill=tk.X, pady=(0, 10))
+
+        #ttk.Button(toolbar_frame, text="Создать автора", command=self.create_author).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(toolbar_frame, text="Редактировать", command=self.edit_author).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(toolbar_frame, text="Удалить", command=self.delete_author).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(toolbar_frame, text="Обновить", command=self.load_authors).pack(side=tk.LEFT, padx=(0, 5))
+
+        ttk.Label(toolbar_frame, text="Поиск по ФИО:").pack(side=tk.LEFT, padx=(20, 5))
         self.author_search_var.trace('w', lambda *args: self.filter_authors())
-        ttk.Entry(toolbar, textvariable=self.author_search_var, width=30).pack(side=tk.LEFT)
-        
-        # Таблица
+        ttk.Entry(toolbar_frame, textvariable=self.author_search_var, width=20).pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Label(toolbar_frame, text="Паспорт (серия номер):").pack(side=tk.LEFT, padx=(0, 5))
+        self.author_passport_var.trace('w', lambda *args: self.filter_authors())
+        ttk.Entry(toolbar_frame, textvariable=self.author_passport_var, width=15).pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Button(toolbar_frame, text="Применить фильтры", command=self.filter_authors).pack(side=tk.LEFT)
+
         table_frame = ttk.Frame(self.authors_frame)
         table_frame.pack(fill=tk.BOTH, expand=True)
-        
+
         vsb = ttk.Scrollbar(table_frame, orient="vertical")
         vsb.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        columns = ("id", "full_name", "passport_id")
+
+        columns = ("id", "full_name", "passport")
         self.authors_tree = ttk.Treeview(
             table_frame,
             columns=columns,
             show="tree headings",
             yscrollcommand=vsb.set
         )
-        
         vsb.config(command=self.authors_tree.yview)
-        
+
         self.authors_tree.heading("#0", text="")
         self.authors_tree.heading("id", text="ID")
         self.authors_tree.heading("full_name", text="ФИО")
-        self.authors_tree.heading("passport_id", text="ID Паспорта")
-        
+        self.authors_tree.heading("passport", text="Паспорт")
+
         self.authors_tree.column("#0", width=0, stretch=False)
         self.authors_tree.column("id", width=100, anchor=tk.CENTER)
         self.authors_tree.column("full_name", width=400)
-        self.authors_tree.column("passport_id", width=150, anchor=tk.CENTER)
-        
+        self.authors_tree.column("passport", width=150, anchor=tk.CENTER)
+
         self.authors_tree.pack(fill=tk.BOTH, expand=True)
-        
-        # Кнопка для просмотра патентов автора
+        self.authors_tree.bind("<Double-1>", lambda e: self.view_author())
+
         btn_frame = ttk.Frame(self.authors_frame)
         btn_frame.pack(fill=tk.X, pady=(10, 0))
-        
-        ttk.Button(
-            btn_frame,
-            text="📜 Показать патенты автора",
-            style="Secondary.TButton",
-            command=self.show_author_patents
-        ).pack(side=tk.LEFT)
-    
-    def create_statuses_tab(self):
-        """Создать вкладку статусов"""
-        # Toolbar
-        toolbar = ttk.Frame(self.statuses_frame)
-        toolbar.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Button(
-            toolbar,
-            text="🔄 Обновить",
-            style="Secondary.TButton",
-            command=self.load_statuses
-        ).pack(side=tk.LEFT)
-        
-        # Таблица
-        table_frame = ttk.Frame(self.statuses_frame)
-        table_frame.pack(fill=tk.BOTH, expand=True)
-        
-        vsb = ttk.Scrollbar(table_frame, orient="vertical")
-        vsb.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        columns = ("id", "name")
-        self.statuses_tree = ttk.Treeview(
-            table_frame,
-            columns=columns,
-            show="tree headings",
-            yscrollcommand=vsb.set
-        )
-        
-        vsb.config(command=self.statuses_tree.yview)
-        
-        self.statuses_tree.heading("#0", text="")
-        self.statuses_tree.heading("id", text="ID")
-        self.statuses_tree.heading("name", text="Название")
-        
-        self.statuses_tree.column("#0", width=0, stretch=False)
-        self.statuses_tree.column("id", width=100, anchor=tk.CENTER)
-        self.statuses_tree.column("name", width=500)
-        
-        self.statuses_tree.pack(fill=tk.BOTH, expand=True)
-    
-    def create_types_tab(self):
-        """Создать вкладку типов патентов"""
-        # Toolbar
-        toolbar = ttk.Frame(self.types_frame)
-        toolbar.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Button(
-            toolbar,
-            text="🔄 Обновить",
-            style="Secondary.TButton",
-            command=self.load_types
-        ).pack(side=tk.LEFT)
-        
-        # Таблица
-        table_frame = ttk.Frame(self.types_frame)
-        table_frame.pack(fill=tk.BOTH, expand=True)
-        
-        vsb = ttk.Scrollbar(table_frame, orient="vertical")
-        vsb.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        columns = ("id", "name")
-        self.types_tree = ttk.Treeview(
-            table_frame,
-            columns=columns,
-            show="tree headings",
-            yscrollcommand=vsb.set
-        )
-        
-        vsb.config(command=self.types_tree.yview)
-        
-        self.types_tree.heading("#0", text="")
-        self.types_tree.heading("id", text="ID")
-        self.types_tree.heading("name", text="Название")
-        
-        self.types_tree.column("#0", width=0, stretch=False)
-        self.types_tree.column("id", width=100, anchor=tk.CENTER)
-        self.types_tree.column("name", width=500)
-        
-        self.types_tree.pack(fill=tk.BOTH, expand=True)
-    
-    def create_holders_tab(self):
-        """Создать вкладку правообладателей"""
-        # Toolbar
-        toolbar = ttk.Frame(self.holders_frame)
-        toolbar.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Button(
-            toolbar,
-            text="🔄 Обновить",
-            style="Secondary.TButton",
-            command=self.load_holders
-        ).pack(side=tk.LEFT)
-        
-        # Таблица
-        table_frame = ttk.Frame(self.holders_frame)
-        table_frame.pack(fill=tk.BOTH, expand=True)
-        
-        vsb = ttk.Scrollbar(table_frame, orient="vertical")
-        vsb.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        columns = ("id", "name")
-        self.holders_tree = ttk.Treeview(
-            table_frame,
-            columns=columns,
-            show="tree headings",
-            yscrollcommand=vsb.set
-        )
-        
-        vsb.config(command=self.holders_tree.yview)
-        
-        self.holders_tree.heading("#0", text="")
-        self.holders_tree.heading("id", text="ID")
-        self.holders_tree.heading("name", text="Название")
-        
-        self.holders_tree.column("#0", width=0, stretch=False)
-        self.holders_tree.column("id", width=100, anchor=tk.CENTER)
-        self.holders_tree.column("name", width=500)
-        
-        self.holders_tree.pack(fill=tk.BOTH, expand=True)
-    
-    def load_data(self):
-        """Загрузить все данные"""
-        self.load_employees()
-        self.load_authors()
-        self.load_statuses()
-        self.load_types()
-        self.load_holders()
-    
-    def load_employees(self):
-        """Загрузить сотрудников"""
-        try:
-            employees = self.api_client.get_employees()
-            
-            for item in self.employees_tree.get_children():
-                self.employees_tree.delete(item)
-            
-            for emp in employees:
-                values = (
-                    emp.get('id', ''),
-                    emp.get('full_name', ''),
-                    emp.get('employment_date', ''),
-                    emp.get('phone_number', ''),
-                    emp.get('position_id', '')
-                )
-                self.employees_tree.insert("", tk.END, values=values)
-                
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось загрузить сотрудников:\n{str(e)}")
-    
+
+        ttk.Button(btn_frame, text="Показать патенты автора", command=self.show_author_patents).pack(side=tk.LEFT)
+
     def load_authors(self):
-        """Загрузить авторов"""
         try:
-            self.authors_data = self.api_client.get_authors()
-            
-            for item in self.authors_tree.get_children():
-                self.authors_tree.delete(item)
-            
-            for author in self.authors_data:
-                values = (
-                    author.get('id', ''),
-                    author.get('full_name', ''),
-                    author.get('passport_id', '-')
-                )
-                self.authors_tree.insert("", tk.END, values=values)
-                
+            self.authors = self.api_client.get_authors()
+            self.update_authors_table()
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось загрузить авторов:\n{str(e)}")
-    
-    def filter_authors(self):
-        """Фильтровать авторов по ФИО"""
-        search_text = self.author_search_var.get().lower()
-        
+
+    def update_authors_table(self):
         for item in self.authors_tree.get_children():
             self.authors_tree.delete(item)
-        
-        for author in self.authors_data:
-            full_name = (author.get('full_name') or '').lower()
-            
-            if search_text and search_text not in full_name:
-                continue
-            
+
+        for author in self.authors:
             values = (
                 author.get('id', ''),
                 author.get('full_name', ''),
-                author.get('passport_id', '-')
+                self.get_passport_string(author.get('passport_id')) if author.get('passport_id') else '-'
             )
             self.authors_tree.insert("", tk.END, values=values)
-    
+
+    def filter_authors(self):
+        search_text = self.author_search_var.get().lower()
+        search_passport = self.author_passport_var.get().strip()
+
+        filtered = []
+        for author in self.authors:
+            if search_text and search_text not in (author.get('full_name') or '').lower():
+                continue
+
+            if search_passport:
+                passport_str = self.get_passport_string(author.get('passport_id'))
+                if search_passport not in passport_str:
+                    continue
+
+            filtered.append(author)
+
+        for item in self.authors_tree.get_children():
+            self.authors_tree.delete(item)
+
+        for author in filtered:
+            values = (
+                author.get('id', ''),
+                author.get('full_name', ''),
+                self.get_passport_string(author.get('passport_id')) if author.get('passport_id') else '-'
+            )
+            self.authors_tree.insert("", tk.END, values=values)
+
+    def create_author(self):
+        dialog = AuthorDialog(self.parent_frame, self.passports, api_client=self.api_client)
+        if dialog.author_payload:
+            try:
+                self.api_client.create_author(dialog.author_payload)
+                messagebox.showinfo("Успех", "Автор создан успешно!")
+                self.load_passports()
+                self.load_authors()
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Не удалось создать автора:\n{str(e)}")
+
+    def edit_author(self):
+        selected = self.authors_tree.selection()
+        if not selected:
+            messagebox.showwarning("Предупреждение", "Выберите автора для редактирования")
+            return
+
+        author_id = int(self.authors_tree.item(selected[0])['values'][0])
+        author = next((a for a in self.authors if a['id'] == author_id), None)
+
+        if not author:
+            return
+
+        dialog = AuthorDialog(self.parent_frame, self.passports, author, self.api_client)
+        if dialog.author_payload:
+            try:
+                self.api_client.update_author(author_id, dialog.author_payload)
+                messagebox.showinfo("Успех", "Автор обновлен успешно!")
+                self.load_passports()
+                self.load_authors()
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Не удалось обновить автора:\n{str(e)}")
+
+    def delete_author(self):
+        selected = self.authors_tree.selection()
+        if not selected:
+            messagebox.showwarning("Предупреждение", "Выберите автора для удаления")
+            return
+
+        author_id = int(self.authors_tree.item(selected[0])['values'][0])
+
+        if messagebox.askyesno("Подтверждение", f"Вы уверены, что хотите удалить автора #{author_id}?"):
+            try:
+                self.api_client.delete_author(author_id)
+                messagebox.showinfo("Успех", "Автор удален успешно!")
+                self.load_authors()
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Не удалось удалить автора:\n{str(e)}")
+
+    def view_author(self):
+        selected = self.authors_tree.selection()
+        if not selected:
+            return
+
+        author_id = int(self.authors_tree.item(selected[0])['values'][0])
+        author = next((a for a in self.authors if a['id'] == author_id), None)
+
+        if not author:
+            return
+
+        view_window = tk.Toplevel(self.parent_frame)
+        view_window.title(f"Автор #{author_id}")
+        view_window.geometry("600x300")
+
+        main_frame = tk.Frame(view_window)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(main_frame, text=f"Автор #{author_id}").pack(pady=(0, 20))
+
+        info_frame = tk.Frame(main_frame)
+        info_frame.pack(fill=tk.BOTH, expand=True)
+
+        fields = [
+            ("ID:", author.get('id', '')),
+            ("ФИО:", author.get('full_name', '')),
+            ("Паспорт:", self.get_passport_string(author.get('passport_id')) if author.get('passport_id') else '-'),
+        ]
+
+        for i, (label, value) in enumerate(fields):
+            tk.Label(info_frame, text=label).grid(row=i, column=0, sticky=tk.W, pady=5, padx=(0, 10))
+            tk.Label(info_frame, text=str(value)).grid(row=i, column=1, sticky=tk.W, pady=5)
+
+        tk.Button(main_frame, text="Закрыть", command=view_window.destroy).pack(pady=(20, 0))
+
     def show_author_patents(self):
-        """Показать патенты выбранного автора"""
         selected = self.authors_tree.selection()
         if not selected:
             messagebox.showwarning("Предупреждение", "Выберите автора")
             return
-        
+
         author_id = int(self.authors_tree.item(selected[0])['values'][0])
         author_name = self.authors_tree.item(selected[0])['values'][1]
-        
-        # Получаем все патенты и фильтруем по автору
+
         try:
-            # Получаем заявки этого автора
             applications = self.api_client.get_applications()
             author_apps = [app for app in applications if app.get('author_id') == author_id]
-            
-            # Получаем патенты для этих заявок
+
             all_patents = self.api_client.get_patents()
             author_patents = [p for p in all_patents if p.get('application_id') in [a['id'] for a in author_apps]]
-            
-            # Создаем окно с результатами
+
             result_window = tk.Toplevel(self.parent_frame)
             result_window.title(f"Патенты автора: {author_name}")
             result_window.geometry("900x500")
-            
+
             main_frame = ttk.Frame(result_window, padding="20")
             main_frame.pack(fill=tk.BOTH, expand=True)
-            
-            ttk.Label(
-                main_frame,
-                text=f"Патенты автора: {author_name}",
-                style="Title.TLabel"
-            ).pack(pady=(0, 20))
-            
-            # Таблица
+
+            ttk.Label(main_frame, text=f"Патенты автора: {author_name}").pack(pady=(0, 20))
+
             table_frame = ttk.Frame(main_frame)
             table_frame.pack(fill=tk.BOTH, expand=True)
-            
+
             vsb = ttk.Scrollbar(table_frame, orient="vertical")
             vsb.pack(side=tk.RIGHT, fill=tk.Y)
-            
+
             columns = ("id", "title", "issue_date", "type", "status")
-            tree = ttk.Treeview(
-                table_frame,
-                columns=columns,
-                show="tree headings",
-                yscrollcommand=vsb.set
-            )
-            
+            tree = ttk.Treeview(table_frame, columns=columns, show="tree headings", yscrollcommand=vsb.set)
             vsb.config(command=tree.yview)
-            
+
             tree.heading("#0", text="")
             tree.heading("id", text="ID")
             tree.heading("title", text="Название")
             tree.heading("issue_date", text="Дата выдачи")
             tree.heading("type", text="Тип")
             tree.heading("status", text="Статус")
-            
+
             tree.column("#0", width=0, stretch=False)
             tree.column("id", width=50, anchor=tk.CENTER)
             tree.column("title", width=300)
             tree.column("issue_date", width=120, anchor=tk.CENTER)
             tree.column("type", width=150)
             tree.column("status", width=120)
-            
+
             tree.pack(fill=tk.BOTH, expand=True)
-            
-            # Заполняем
+
             for patent in author_patents:
                 values = (
                     patent.get('id', ''),
@@ -430,73 +518,183 @@ class ReferencesWindow:
                     patent.get('status', {}).get('name', 'Не указан') if patent.get('status') else 'Не указан'
                 )
                 tree.insert("", tk.END, values=values)
-            
-            ttk.Label(
-                main_frame,
-                text=f"Всего патентов: {len(author_patents)}",
-                style="Light.TLabel"
-            ).pack(pady=(10, 0))
-            
-            ttk.Button(
-                main_frame,
-                text="Закрыть",
-                style="Secondary.TButton",
-                command=result_window.destroy
-            ).pack(pady=(10, 0))
-            
+
+            ttk.Label(main_frame, text=f"Всего патентов: {len(author_patents)}").pack(pady=(10, 0))
+
+            ttk.Button(main_frame, text="Закрыть", command=result_window.destroy).pack(pady=(10, 0))
+
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось загрузить патенты автора:\n{str(e)}")
-    
-    def load_statuses(self):
-        """Загрузить статусы"""
-        try:
-            statuses = self.api_client.get_statuses()
-            
-            for item in self.statuses_tree.get_children():
-                self.statuses_tree.delete(item)
-            
-            for status in statuses:
-                values = (
-                    status.get('id', ''),
-                    status.get('name', '')
-                )
-                self.statuses_tree.insert("", tk.END, values=values)
-                
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось загрузить статусы:\n{str(e)}")
-    
-    def load_types(self):
-        """Загрузить типы патентов"""
-        try:
-            types = self.api_client.get_patent_types()
-            
-            for item in self.types_tree.get_children():
-                self.types_tree.delete(item)
-            
-            for ptype in types:
-                values = (
-                    ptype.get('id', ''),
-                    ptype.get('name', '')
-                )
-                self.types_tree.insert("", tk.END, values=values)
-                
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось загрузить типы:\n{str(e)}")
-    
-    def load_holders(self):
-        """Загрузить правообладателей"""
-        try:
-            holders = self.api_client.get_rights_holders()
-            
-            for item in self.holders_tree.get_children():
-                self.holders_tree.delete(item)
-            
-            for holder in holders:
-                values = (
-                    holder.get('id', ''),
-                    holder.get('name', '')
-                )
-                self.holders_tree.insert("", tk.END, values=values)
-                
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось загрузить правообладателей:\n{str(e)}")
+
+    def load_data(self):
+        self.load_employees()
+        self.load_authors()
+
+
+class EmployeeDialog:
+    def __init__(self, parent, positions, passports, employee=None, api_client=None):
+        self.positions = positions
+        self.passports = passports
+        self.employee = employee
+        self.api_client = api_client
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("Редактировать сотрудника")
+        self.dialog.geometry("400x400")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        self.full_name_var = tk.StringVar()
+        self.employment_date_var = tk.StringVar()
+        self.phone_number_var = tk.StringVar()
+        self.position_var = tk.StringVar()
+        self.passport_var = tk.StringVar()
+
+        self.employee_payload = None
+
+        self.create_widgets()
+        self.dialog.wait_window()
+
+    def create_widgets(self):
+        main_frame = ttk.Frame(self.dialog, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(main_frame, text="ФИО:").pack(anchor=tk.W)
+        self.full_name_var.set(self.employee.get('full_name', '') if self.employee else '')
+        ttk.Entry(main_frame, textvariable=self.full_name_var).pack(fill=tk.X, pady=5)
+
+        ttk.Label(main_frame, text="Дата трудоустройства (YYYY-MM-DD):").pack(anchor=tk.W)
+        self.employment_date_var.set(self.employee.get('employment_date', '') if self.employee else '')
+        ttk.Entry(main_frame, textvariable=self.employment_date_var).pack(fill=tk.X, pady=5)
+
+        ttk.Label(main_frame, text="Телефон:").pack(anchor=tk.W)
+        self.phone_number_var.set(self.employee.get('phone_number', '') if self.employee else '')
+        ttk.Entry(main_frame, textvariable=self.phone_number_var).pack(fill=tk.X, pady=5)
+
+        ttk.Label(main_frame, text="Должность:").pack(anchor=tk.W)
+        positions_names = [p['name'] for p in self.positions]
+        pos_combo = ttk.Combobox(main_frame, textvariable=self.position_var, values=positions_names, state="readonly")
+        pos_combo.pack(fill=tk.X, pady=5)
+        if self.employee and self.employee.get('position_id'):
+            pos_name = next((p['name'] for p in self.positions if p['id'] == self.employee['position_id']), '')
+            self.position_var.set(pos_name)
+
+        ttk.Label(main_frame, text="Паспорт (серия номер через пробел):").pack(anchor=tk.W)
+        passport_strings = [f"{p['series']} {p['number']}" for p in self.passports]
+        pas_combo = ttk.Combobox(main_frame, textvariable=self.passport_var, values=passport_strings)
+        pas_combo.pack(fill=tk.X, pady=5)
+        if self.employee and self.employee.get('passport_id'):
+            pas = next((p for p in self.passports if p['id'] == self.employee['passport_id']), None)
+            if pas:
+                self.passport_var.set(f"{pas['series']} {pas['number']}")
+
+        ttk.Button(main_frame, text="Сохранить", command=self.save).pack(pady=10)
+        ttk.Button(main_frame, text="Отмена", command=self.dialog.destroy).pack()
+
+    def save(self):
+        if not self.full_name_var.get().strip():
+            messagebox.showwarning("Предупреждение", "Введите ФИО")
+            return
+
+        position_id = next((p['id'] for p in self.positions if p['name'] == self.position_var.get()), None) if self.position_var.get() else None
+
+        passport_id = None
+        passport_str = self.passport_var.get().strip()
+        if passport_str:
+            parts = passport_str.split()
+            if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit():
+                messagebox.showwarning("Предупреждение", "Паспорт должен быть в формате 'серия номер' (две цифры через пробел)")
+                return
+            series = int(parts[0])
+            number = int(parts[1])
+            passport_id = next((p['id'] for p in self.passports if p['series'] == series and p['number'] == number), None)
+            if passport_id is None:
+                try:
+                    new_passport = self.api_client.create_passport({'series': series, 'number': number})
+                    passport_id = new_passport['id']
+                    self.passports.append(new_passport)
+                    messagebox.showinfo("Инфо", "Создан новый паспорт")
+                except Exception as e:
+                    messagebox.showerror("Ошибка", f"Не удалось создать паспорт:\n{str(e)}")
+                    return
+
+        self.employee_payload = {
+            'full_name': self.full_name_var.get().strip(),
+            'employment_date': self.employment_date_var.get() or None,
+            'phone_number': self.phone_number_var.get() or None,
+            'position_id': position_id,
+            'passport_id': passport_id
+        }
+        self.dialog.destroy()
+
+
+class AuthorDialog:
+    def __init__(self, parent, passports, author=None, api_client=None):
+        self.passports = passports
+        self.author = author
+        self.api_client = api_client
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("Создать автора" if not author else "Редактировать автора")
+        self.dialog.geometry("400x200")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        self.full_name_var = tk.StringVar()
+        self.passport_var = tk.StringVar()
+
+        self.author_payload = None
+
+        self.create_widgets()
+        self.dialog.wait_window()
+
+    def create_widgets(self):
+        main_frame = ttk.Frame(self.dialog, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(main_frame, text="ФИО:").pack(anchor=tk.W)
+        self.full_name_var.set(self.author.get('full_name', '') if self.author else '')
+        ttk.Entry(main_frame, textvariable=self.full_name_var).pack(fill=tk.X, pady=5)
+
+        ttk.Label(main_frame, text="Паспорт (серия номер через пробел):").pack(anchor=tk.W)
+        passport_strings = [f"{p['series']} {p['number']}" for p in self.passports]
+        pas_combo = ttk.Combobox(main_frame, textvariable=self.passport_var, values=passport_strings)
+        pas_combo.pack(fill=tk.X, pady=5)
+        if self.author and self.author.get('passport_id'):
+            pas = next((p for p in self.passports if p['id'] == self.author['passport_id']), None)
+            if pas:
+                self.passport_var.set(f"{pas['series']} {pas['number']}")
+
+        ttk.Button(main_frame, text="Сохранить", command=self.save).pack(pady=10)
+        ttk.Button(main_frame, text="Отмена", command=self.dialog.destroy).pack()
+
+    def save(self):
+        if not self.full_name_var.get().strip():
+            messagebox.showwarning("Предупреждение", "Введите ФИО")
+            return
+
+        passport_id = None
+        passport_str = self.passport_var.get().strip()
+        if passport_str:
+            parts = passport_str.split()
+            if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit():
+                messagebox.showwarning("Предупреждение", "Паспорт должен быть в формате 'серия номер' (две цифры через пробел)")
+                return
+            series = int(parts[0])
+            number = int(parts[1])
+            passport_id = next((p['id'] for p in self.passports if p['series'] == series and p['number'] == number), None)
+            if passport_id is None:
+                try:
+                    new_passport = self.api_client.create_passport({'series': series, 'number': number})
+                    passport_id = new_passport['id']
+                    self.passports.append(new_passport)
+                    messagebox.showinfo("Инфо", "Создан новый паспорт")
+                except Exception as e:
+                    messagebox.showerror("Ошибка", f"Не удалось создать паспорт:\n{str(e)}")
+                    return
+
+        self.author_payload = {
+            'full_name': self.full_name_var.get().strip(),
+            'passport_id': passport_id
+        }
+        self.dialog.destroy()

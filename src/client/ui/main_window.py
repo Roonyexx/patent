@@ -8,6 +8,7 @@ from src.client.ui.applications_window import ApplicationsWindow
 from src.client.ui.patents_window import PatentsWindow
 from src.client.ui.export_window import ExportWindow
 from src.client.ui.notification_window import NotificationWindow
+from src.client.ui.references_window import ReferencesWindow
 
 
 WINDOW_SIZE = '1400x800'
@@ -33,7 +34,7 @@ class MainWindow:
     def __init__(self, client: Client):
         self.client = client
         self.user = self.client.get_current_user()
-        
+
         self.window = tk.Tk()
         self.window.title('Патентный менеджер')
         self.window.geometry(WINDOW_SIZE)
@@ -44,7 +45,7 @@ class MainWindow:
         self.create_widgets()
         self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
         ext.center_window(self.window)
-    
+
     def create_widgets(self):
         top_frame = tk.Frame(self.window)
         top_frame.pack(fill=tk.X, side=tk.TOP)
@@ -65,13 +66,15 @@ class MainWindow:
                                                                                                         pady=(0, 5))
         tk.Button(sidebar_frame, text="Патенты", command=lambda: self.show_content("patents")).pack(fill=tk.X,
                                                                                                     pady=(0, 5))
+        tk.Button(sidebar_frame, text="Сотрудники/Авторы", command=lambda: self.show_content("references")).pack(fill=tk.X,
+                                                                                                           pady=(0, 5))
         tk.Button(sidebar_frame, text="Уведомления", command=self.show_notification_window).pack(fill=tk.X, pady=(0, 5))
         tk.Button(sidebar_frame, text="Экспорт отчетов", command=self.show_export_window).pack(fill=tk.X, pady=(0, 5))
 
         self.content_frame = tk.Frame(main_container)
         self.content_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.show_content("applications")
-    
+
     def show_content(self, content_type):
         for widget in self.content_frame.winfo_children():
             widget.destroy()
@@ -80,6 +83,8 @@ class MainWindow:
             self.content = ApplicationsWindow(self.content_frame, self.user, self.client)
         elif content_type == "patents":
             self.content = PatentsWindow(self.content_frame, self.client)
+        elif content_type == "references":
+            self.content = ReferencesWindow(self.content_frame, self.client)
 
     def show_notification_window(self):
         NotificationWindow(self.collect_notifications()).show()
@@ -108,12 +113,12 @@ class MainWindow:
                 self.client.logout()
             except Exception as e:
                 messagebox.showerror(str(e))
-            
+
             self.window.destroy()
 
             from src.client.ui.login_window import LoginWindow
             LoginWindow(self.client).show()
-    
+
     def on_closing(self):
         if messagebox.askyesno("Выход", "Вы действительно хотите выйти из программы?"):
             try:
@@ -122,6 +127,6 @@ class MainWindow:
                 messagebox.showerror(str(e))
 
             self.window.destroy()
-    
+
     def show(self):
         self.window.mainloop()
