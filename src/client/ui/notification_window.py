@@ -5,7 +5,8 @@ import src.client.ui.ui_extensions as ext
 
 
 TITLE = 'Необходимо обработать заявку'
-MESSAGE = 'Истекает срок обработки заявки №'
+EXPIRES_MESSAGE = 'Истекает срок обработки заявки №'
+EXPIRED_MESSAGE = 'Истек срок обработки заявки №'
 
 
 class NotificationWindow:
@@ -23,8 +24,12 @@ class NotificationWindow:
         self.notifications = []
 
         for notification in notifications:
-            self.add_notification(TITLE,
-                    f'{MESSAGE}{notification.get('id')} (осталось {notification.get('days_left')} дней)')
+            if notification.get('is_expired'):
+                self.add_notification(TITLE,
+                    f'{EXPIRED_MESSAGE}{notification.get('id')}')
+            else:
+                self.add_notification(TITLE,
+                    f'{EXPIRES_MESSAGE}{notification.get('id')} (осталось {notification.get('days_left')} дней)')
 
         ext.center_window(self.window)
 

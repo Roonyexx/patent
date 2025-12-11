@@ -17,13 +17,12 @@ APPLICATION_PROCESSING_DEADLINE = 10
 def is_application_expired(submission_date: str):
     if submission_date:
         try:
-            formatted_submission_date = datetime.strptime(submission_date.split('T')[0], '%Y-%m-%d').date()
+            formatted_submission_date = datetime.strptime(submission_date, '%Y-%m-%d').date()
             deadline_date = formatted_submission_date + timedelta(
                 days=APPLICATION_PROCESSING_DEADLINE)
-            print(deadline_date - formatted_submission_date)
 
-            if deadline_date >= date.today():
-                return False, (deadline_date - formatted_submission_date).days
+            if deadline_date > date.today():
+                return False, (deadline_date - date.today()).days
         except Exception as e:
             print(str(e))
 
@@ -95,12 +94,11 @@ class MainWindow:
         for application in applications:
             submission_date = application.get('submission_date')
             is_expired, days_left = is_application_expired(submission_date)
-
-            if not is_expired:
-                notifications.append({
-                    'id': application.get('id'),
-                    'days_left': days_left
-                })
+            notifications.append({
+                'id': application.get('id'),
+                'days_left': days_left,
+                'is_expired': is_expired
+            })
         return notifications
 
 

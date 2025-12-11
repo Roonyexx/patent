@@ -46,11 +46,14 @@ async def get_patents_by_owner(session: AsyncSession, owner_id: int):
 async def create_patent(session: AsyncSession, patent_data: dict):
     today = date.today()
     expiration_date = today + timedelta(days=365)
+
+    if patent_data.get('issue_date') and not patent_data.get('expiration_date'):
+            expiration_date = patent_data.get('issue_date') + timedelta(days=365)
     
     db_patent = Patent(
         title=patent_data.get("title"),
         issue_date=patent_data.get("issue_date", today),
-        expiration_date=expiration_date,  
+        expiration_date=patent_data.get('expiration_date', expiration_date),
         description=patent_data.get("description"),
         rights_holder_id=patent_data.get("rights_holder_id"),
         patent_type_id=patent_data.get("patent_type_id"),

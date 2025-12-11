@@ -151,7 +151,7 @@ class PatentBrief(BaseModel):
 
 class Application(ApplicationBase):
     id: int
-    submission_date: datetime
+    submission_date: Optional[date] = None
     modification_date: Optional[datetime] = None
     status_id: Optional[int] = None
     status: Optional[Status] = None
@@ -191,6 +191,7 @@ class PatentType(PatentTypeBase):
 class PatentBase(BaseModel):
     title: Optional[str] = None
     issue_date: Optional[date] = None
+    expiration_date: Optional[date] = None
     description: Optional[str] = None
     rights_holder_id: Optional[int] = None
     patent_type_id: Optional[int] = None

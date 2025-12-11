@@ -83,7 +83,7 @@ class Application(Base):
     __tablename__ = "Application"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    submission_date = Column(DateTime, default=datetime.now(UTC).replace(tzinfo=None), nullable=False)
+    submission_date = Column(Date, default=datetime.now(UTC).date(), nullable=False)
     documents = Column(Text)
     modification_date = Column(DateTime, default=datetime.now(UTC).replace(tzinfo=None), onupdate=datetime.now(UTC).replace(tzinfo=None))
     expert_conclusion = Column(Text)

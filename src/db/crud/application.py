@@ -37,9 +37,9 @@ async def get_applications_by_status(session: AsyncSession, status_id: int, skip
 
 async def create_application(session: AsyncSession, application_data: dict):
     db_application = Application(
-        submission_date=datetime.utcnow(),
+        submission_date=application_data.get("submission_date"), #datetime.utcnow(),
         documents=application_data.get("documents"),
-        status_id=application_data.get("status_id", 1),  
+        status_id=application_data.get("status_id", 1),
         employee_id=application_data.get("employee_id"),
         author_id=application_data.get("author_id")
     )

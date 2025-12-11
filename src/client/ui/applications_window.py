@@ -7,6 +7,7 @@ from src.client.client import Client
 
 
 ALL = 'Все'
+BY_ID = 'По id'
 BY_DATE = 'По дате'
 
 ACTIVE_STATUS = 'Активен'
@@ -26,6 +27,8 @@ class ApplicationsWindow:
         self.search_var = tk.StringVar()
         self.filter_combobox = None
         self.tree = None
+
+        self.table_items = []
 
         self.create_widgets()
         self.load_data()
@@ -98,8 +101,8 @@ class ApplicationsWindow:
             self.applications = self.client.get_applications()
             self.statuses = self.client.get_statuses()
 
-            statuses_names = [s['name'] for s in self.statuses if s['name'] != ACTIVE_STATUS and s['name'] != EXPIRED_STATUS]
-            combobox_values = ['Все'] + statuses_names + ['По дате']
+            statuses_names = [s.get('name') for s in self.statuses if s.get('name') not in [ACTIVE_STATUS, EXPIRED_STATUS]]
+            combobox_values = [ALL, BY_ID, BY_DATE] + statuses_names
 
             self.filter_combobox['values'] = combobox_values
 
@@ -111,30 +114,12 @@ class ApplicationsWindow:
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        for app in self.applications:
-            status_name = app.get('status', {}).get('name', 'Неизвестно') if app.get('status') else 'Не указан'
-            
-            submission_date = app.get('submission_date', '')
-            if submission_date:
-                try:
-                    dt = datetime.fromisoformat(submission_date.replace('Z', '+00:00'))
-                    submission_date = dt.strftime('%Y-%m-%d %H:%M')
-                except Exception as e:
-                    messagebox.showerror('Ошибка', str(e))
+        self.table_items.clear()
 
-            employee_full_name = self.client.get_employee_full_name(app.get('employee_id'))
-            author_full_name = self.client.get_author_full_name(app.get('author_id'))
-            
-            values = (
-                app.get('id', ''),
-                submission_date,
-                status_name,
-                app.get('documents', '')[:50] + '...' if app.get('documents') and len(app.get('documents', '')) > 50 else app.get('documents', ''),
-                employee_full_name,
-                author_full_name
-            )
-            
-            self.tree.insert("", tk.END, values=values, tags=(app.get('id'),))
+        for application in self.applications:
+            values = self.get_values_from_application(application)
+            self.table_items.append(values)
+            self.tree.insert("", tk.END, values=values, tags=(values[0],))
     
     def filter_applications(self):
         filter_param = self.filter_var.get()
@@ -143,36 +128,33 @@ class ApplicationsWindow:
         for item in self.tree.get_children():
             self.tree.delete(item)
         
-        for app in self.applications:
-            status_name = app.get('status', {}).get('name', '') if app.get('status') else ''
-            submission_date = app.get('submission_date', '')
-
-            if submission_date:
-                try:
-                    dt = datetime.fromisoformat(submission_date.replace('Z', '+00:00'))
-                    submission_date = dt.strftime('%Y-%m-%d')
-                except Exception as e:
-                    messagebox.showwarning('Предупреждение', str(e))
-
+        for values in self.table_items:
             if filter_param != ALL:
-                if filter_param == BY_DATE and search_text:
-                    if search_text not in submission_date:
+                if filter_param == BY_ID and search_text:
+                    if search_text not in str(values[0]):
+                        continue
+
+                elif filter_param == BY_DATE and search_text:
+                    if search_text not in values[1]:
                         continue
 
                 else:
-                    if filter_param != status_name:
+                    if filter_param != values[2]:
                         continue
-
-            values = (
-                app.get('id', ''),
-                submission_date,
-                status_name,
-                app.get('documents', '')[:50] + '...' if app.get('documents') and len(app.get('documents', '')) > 50 else app.get('documents', ''),
-                app.get('employee_id', '-'),
-                app.get('author_id', '-')
-            )
             
-            self.tree.insert("", tk.END, values=values, tags=(app.get('id'),))
+            self.tree.insert("", tk.END, values=values, tags=(values[0],))
+
+    def get_values_from_application(self, application):
+        employee_full_name = self.client.get_employee_full_name(application.get('employee_id'))
+        author_full_name = self.client.get_author_full_name(application.get('author_id'))
+        return [
+            application.get('id'),
+            application.get('submission_date'),
+            application.get('status').get('name'),
+            application.get('documents'),
+            employee_full_name,
+            author_full_name
+        ]
     
     def create_application(self):
         dialog = ApplicationDialog(self.parent_frame, self.client, self.statuses)
@@ -214,6 +196,7 @@ class ApplicationsWindow:
             return
 
         author = self.create_author(dialog.author_payload, passport)
+        print(author)
 
         if author == -1:
             return
@@ -319,22 +302,40 @@ class ApplicationsWindow:
     
     def delete_application(self):
         selected = self.tree.selection()
+
         if not selected:
             messagebox.showwarning("Предупреждение", "Выберите заявку для удаления")
             return
         
-        app_id = int(self.tree.item(selected[0])['values'][0])
+        application_id = int(self.tree.item(selected[0])['values'][0])
+        patent_ids = self.get_patent_ids_to_delete(application_id)
+
+        message_box_info = f"Вы уверены, что хотите удалить заявку №{application_id}"
+
+        if len(patent_ids) > 0:
+            message_box_info += ", будут удалены патенты с id: {patent_ids}?"
+        else:
+            message_box_info += "?"
         
-        if messagebox.askyesno("Подтверждение", f"Вы уверены, что хотите удалить заявку #{app_id}?"):
+        if messagebox.askyesno("Подтверждение", message_box_info):
             try:
-                self.client.delete_application(app_id)
+                self.client.delete_application(application_id)
                 messagebox.showinfo("Успех", "Заявка удалена успешно!")
                 self.load_data()
             except Exception as e:
                 messagebox.showerror("Ошибка", f"Не удалось удалить заявку:\n{str(e)}")
 
+    def get_patent_ids_to_delete(self, application_id: int):
+        patents = self.client.get_patents()
+        ids = []
 
-DIALOG_SIZE = '400x550'
+        for patent in patents:
+            if patent.get('application_id') == application_id:
+                ids.append(patent.get('id'))
+        return ids
+
+
+DIALOG_SIZE = '400x580'
 
 
 class ApplicationDialog:
@@ -397,16 +398,23 @@ class ApplicationDialog:
         status_combobox.pack(fill=tk.X, pady=(0, 15))
 
         if self.application:
-            print(self.application)
-
             author = self.client.get_author(self.application.get('author_id'))
-            print(author)
-
             full_name_entry.insert(0, author.get('full_name'))
 
-            passport_series = author.get('passport').get('series')
-            passport_number = author.get('passport').get('number')
+            passport_series = str(author.get('passport').get('series'))
+
+            for _ in range(4 - len(passport_series)):
+                passport_series = '0' + passport_series
+
+            passport_number = str(author.get('passport').get('number'))
+
+            for _ in range(6 - len(passport_number)):
+                passport_number = '0' + passport_number
+
             passport_entry.insert(0, f'{passport_series} {passport_number}')
+
+            date = self.application.get('submission_date')
+            self.calendar.set_date(date)
 
             status_combobox.set(self.application.get('status').get('name'))
         else:
@@ -443,7 +451,7 @@ class ApplicationDialog:
             messagebox.showwarning("Предупреждение", "Укажите статус")
             return
 
-        status_id = self.get_status_id_by_name()
+        status_id = self.get_status_id()
 
         if status_id == -1:
             messagebox.showwarning("Предупреждение", "Не существует статуса с таким названием")
@@ -458,7 +466,7 @@ class ApplicationDialog:
         if self.conclusion_text:
             self.application_payload["expert_conclusion"] = self.conclusion_text.get('1.0', tk.END).strip()
 
-        self.author_payload['submission_date'] = self.calendar.get()
+        self.application_payload['submission_date'] = self.calendar.get()
         self.application_payload['status_id'] = status_id
         self.dialog.destroy()
 
@@ -475,7 +483,7 @@ class ApplicationDialog:
             return False, (0, 0)
         return True, (series, number)
 
-    def get_status_id_by_name(self):
+    def get_status_id(self):
         for status in self.statuses:
             if status.get('name') == self.status_var.get().strip():
                 return status.get('id')

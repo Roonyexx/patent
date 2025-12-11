@@ -27,8 +27,8 @@ def utc_test():
     print(datetime.now(UTC).replace(tzinfo=None))
 
 def time_test():
-    today = datetime.today().date()
-    print(today)
+    submission_date = datetime.strptime('2025-11-03', '%Y-%m-%d').date()
+    print(submission_date)
 
 #datetime_format_test('20-14-2')
 #login_test('mihail', '12345')

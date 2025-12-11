@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkcalendar import DateEntry
 from datetime import datetime, date
 
 import src.client.config as config
@@ -8,6 +9,7 @@ from src.client.ui.export_patent_window import ExportPatentWindow
 
 
 ALL = 'Все'
+BY_ID = 'По id'
 BY_AUTHOR_FULL_NAME = 'По ФИО автора'
 BY_EMPLOYEE_FULL_NAME = 'По ФИО сотрудника'
 BY_TITLE = 'По названию'
@@ -20,12 +22,16 @@ def is_patent_expired(expiration_date: str):
         try:
             formatted_expiration_date = datetime.strptime(expiration_date, '%Y-%m-%d').date()
 
-            if formatted_expiration_date < date.today():
+            if formatted_expiration_date <= date.today():
                 return True
         except Exception as e:
             print(str(e))
 
     return False
+
+
+def show_export_window(parent, values):
+    ExportPatentWindow(parent, values).show()
 
 
 class PatentsWindow:
@@ -43,9 +49,9 @@ class PatentsWindow:
         self.statuses = []
         self.applications = []
 
-        self.patent_table_items = []
+        self.table_items = []
         self.status_names = []
-        self.filter_params = [ALL, BY_AUTHOR_FULL_NAME, BY_EMPLOYEE_FULL_NAME, BY_TITLE]
+        self.filter_params = [ALL, BY_ID, BY_AUTHOR_FULL_NAME, BY_EMPLOYEE_FULL_NAME, BY_TITLE]
 
         self.create_widgets()
         self.load_data()
@@ -127,7 +133,7 @@ class PatentsWindow:
             self.statuses = self.client.get_statuses()
             self.applications = self.client.get_applications()
 
-            self.status_names = [s['name'] for s in self.statuses]
+            self.status_names = [ACTIVE_STATUS, EXPIRED_STATUS]
             self.filter_params += self.status_names
             self.filter_combobox['values'] = self.filter_params
 
@@ -139,7 +145,7 @@ class PatentsWindow:
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        self.patent_table_items.clear()
+        self.table_items.clear()
         
         for patent in self.patents:
             is_expired = is_patent_expired(patent.get('expiration_date'))
@@ -149,7 +155,7 @@ class PatentsWindow:
                 self.update_patent_status(patent, expired_status_id)
 
             values = self.get_values_from_patent(patent)
-            self.patent_table_items.append(values)
+            self.table_items.append(values)
             item_id = self.tree.insert("", tk.END, values=values, tags=(values[0],))
 
             if is_expired:
@@ -159,7 +165,6 @@ class PatentsWindow:
 
     def update_patent_status(self, patent, status_id: int):
         patent['status_id'] = status_id
-        print(patent)
         self.client.update_patent(patent.get('id'), patent)
     
     def filter_patents(self):
@@ -169,9 +174,13 @@ class PatentsWindow:
         for item_id in self.tree.get_children():
             self.tree.delete(item_id)
 
-        for values in self.patent_table_items:
+        for values in self.table_items:
             if filter_param != ALL:
-                if filter_param == BY_AUTHOR_FULL_NAME and search_text:
+                if filter_param == BY_ID and search_text:
+                    if search_text not in str(values[0]):
+                        continue
+
+                elif filter_param == BY_AUTHOR_FULL_NAME and search_text:
                     author_full_name = values[7].lower()
 
                     if search_text not in author_full_name:
@@ -256,7 +265,10 @@ class PatentsWindow:
         if dialog.patent_payload:
             try:
                 dialog.patent_payload['rights_holder_id'] = rights_holder.get('id')
-                dialog.patent_payload['issue_date'] = str(datetime.today().date())
+
+                if not dialog.patent_payload.get('issue_date'):
+                    dialog.patent_payload['issue_date'] = str(datetime.today().date())
+
                 self.client.create_patent(dialog.patent_payload)
                 messagebox.showinfo("Успех", "Патент создан успешно!")
                 self.load_data()
@@ -355,8 +367,8 @@ class PatentsWindow:
             value_label.grid(row=row, column=1, sticky=tk.W, pady=5)
             row += 1
 
-        tk.Button(main_frame, text="Экспорт", command=lambda: self.show_export_window(window, fields)).pack(fill='x',
-                                                                                                            pady=(20, 0))
+        tk.Button(main_frame, text="Экспорт", command=lambda: show_export_window(window, fields)).pack(
+            fill='x', pady=(20, 0))
         tk.Button(main_frame, text="Закрыть", command=window.destroy).pack(fill='x', pady=(20, 0))
     
     def delete_patent(self):
@@ -375,12 +387,9 @@ class PatentsWindow:
             except Exception as e:
                 messagebox.showerror("Ошибка", f"Не удалось удалить патент:\n{str(e)}")
 
-    def show_export_window(self, parent, values):
-        ExportPatentWindow(parent, values).show()
-
 
 APPLICATION_NAME_SEPARATOR = '-'
-DIALOG_SIZE = '400x500'
+DIALOG_SIZE = '400x630'
 
 
 class PatentDialog:
@@ -404,6 +413,8 @@ class PatentDialog:
         self.description_text = None
         self.rights_holder_entry = None
         self.title_entry = None
+        self.issue_calendar = None
+        self.expiration_calendar = None
 
         self.rights_holder_payload = None
         self.patent_payload = None
@@ -419,50 +430,63 @@ class PatentDialog:
         tk.StringVar(value=self.patent.get('title', '') if self.patent else '')
         self.title_entry = tk.Entry(frame)
         self.title_entry.pack(fill=tk.X, pady=(0, 15))
+
+        tk.Label(frame, text="Дата подачи:").pack(anchor=tk.W, pady=(0, 5))
+        self.issue_calendar = DateEntry(frame, selectmode='day', date_pattern='yyyy-mm-dd')
+        self.issue_calendar.pack(fill=tk.X, pady=(0, 15))
+
+        tk.Label(frame, text="Дата истечения:").pack(anchor=tk.W, pady=(0, 5))
+        self.expiration_calendar = DateEntry(frame, selectmode='day', date_pattern='yyyy-mm-dd')
+        self.expiration_calendar.pack(fill=tk.X, pady=(0, 15))
         
         tk.Label(frame, text="Описание:").pack(anchor=tk.W, pady=(0, 5))
         self.description_text = tk.Text(frame, height=5, font=(config.FONT_FAMILY, config.FONT_SIZE_NORMAL))
         self.description_text.pack(fill=tk.X, pady=(0, 15))
-
-        if self.patent and self.patent.get('description'):
-            self.description_text.insert('1.0', self.patent['description'])
         
         tk.Label(frame, text="Тип патента:").pack(anchor=tk.W, pady=(0, 5))
-        type_combobox = ttk.Combobox(frame, textvariable=self.type_var, state="readonly")
-        type_combobox['values'] = [pt['name'] for pt in self.patent_types]
+        type_combobox_values = [patent.get('name') for patent in self.patent_types]
+        type_combobox = ttk.Combobox(frame, textvariable=self.type_var, state="readonly", values=type_combobox_values)
         type_combobox.pack(fill=tk.X, pady=(0, 15))
-        
-        if self.patent and self.patent.get('patent_type_id'):
-            type_name = self.get_patent_type_name(self.patent.get('patent_type_id'))
-            type_combobox.set(type_name)
-        elif self.patent_types:
-            type_combobox.current(0)
 
         tk.Label(frame, text="Статус:").pack(anchor=tk.W, pady=(0, 5))
-        status_combobox = ttk.Combobox(frame, textvariable=self.status_var, state="readonly")
-        status_combobox['values'] = [ACTIVE_STATUS, EXPIRED_STATUS]
+        status_combobox_values = [ACTIVE_STATUS, EXPIRED_STATUS]
+        status_combobox = ttk.Combobox(frame, textvariable=self.status_var, state="readonly", values=status_combobox_values)
         status_combobox.pack(fill=tk.X, pady=(0, 15))
 
-        if self.patent and self.patent.get('status_id'):
-            status_name = self.get_status_name(self.patent.get('patent_type_id'))
-            status_combobox.set(status_name)
-        elif self.patent_types:
-            status_combobox.current(0)
-
         tk.Label(frame, text="Заявка:").pack(anchor=tk.W, pady=(0, 5))
-        app_combo = ttk.Combobox(frame, textvariable=self.application_var, state="readonly")
-        app_combo['values'] = [f"Заявка{APPLICATION_NAME_SEPARATOR}{application.get('id')}"
+        application_combobox_values = [f"Заявка{APPLICATION_NAME_SEPARATOR}{application.get('id')}"
                                for application in self.applications]
-        app_combo.pack(fill=tk.X, pady=(0, 15))
-        
-        if self.patent and self.patent.get('application_id'):
-            app_combo.set(f"Заявка{APPLICATION_NAME_SEPARATOR}{self.patent.get('application_id')}")
-        elif self.applications:
-            app_combo.current(0)
+        application_combobox = ttk.Combobox(frame, textvariable=self.application_var, state="readonly",
+                                            values=application_combobox_values)
+        application_combobox.pack(fill=tk.X, pady=(0, 15))
 
         tk.Label(frame, text="Правообладатель:").pack(anchor=tk.W, pady=(0, 5))
         self.rights_holder_entry = tk.Entry(frame)
         self.rights_holder_entry.pack(fill=tk.X, pady=(0, 15))
+
+        if self.patent:
+            type_name = self.get_patent_type_name(self.patent.get('patent_type_id'))
+            type_combobox.set(type_name)
+
+            issue_date = self.patent.get('issue_date')
+            self.issue_calendar.set_date(issue_date)
+
+            expiration_date = self.patent.get('expiration_date')
+            self.expiration_calendar.set_date(expiration_date)
+
+            self.description_text.insert('1.0', self.patent.get('description'))
+
+            status_name = self.get_status_name(self.patent.get('status_id'))
+            status_combobox.set(status_name)
+
+            application_combobox.set(f"Заявка{APPLICATION_NAME_SEPARATOR}{self.patent.get('application_id')}")
+
+            rights_holder_name = self.client.get_rights_holder_name(self.patent.get('rights_holder_name'))
+            self.rights_holder_entry.insert(0, rights_holder_name)
+        else:
+            type_combobox.set(type_combobox_values[0])
+            status_combobox.set(status_combobox_values[0])
+            application_combobox.set(application_combobox_values[0])
 
         buttons_frame = tk.Frame(frame)
         buttons_frame.pack(fill=tk.X, pady=(20, 0))
@@ -483,6 +507,8 @@ class PatentDialog:
             if status.get('id') == status_id:
                 return status.get('name')
         return '-'
+
+
     
     def save(self):
         if not self.rights_holder_entry.get().strip():
@@ -491,6 +517,10 @@ class PatentDialog:
 
         if not self.title_entry.get().strip():
             messagebox.showwarning("Предупреждение", "Введите название патента")
+            return
+
+        if not self.is_expiration_date_valid():
+            messagebox.showwarning("Предупреждение", "Дата истечения не может быть меньше даты подачи")
             return
 
         if not self.is_title_valid():
@@ -510,6 +540,8 @@ class PatentDialog:
         self.patent_payload = {
             "title": self.title_entry.get().strip(),
             "description": self.description_text.get('1.0', tk.END).strip(),
+            "issue_date": self.issue_calendar.get(),
+            "expiration_date": self.expiration_calendar.get(),
             "patent_type_id": patent_type_id,
             "application_id": application_id,
             "status_id": status_id
@@ -521,3 +553,6 @@ class PatentDialog:
             if patent.get('title') == self.title_entry.get().strip():
                 return False
         return True
+
+    def is_expiration_date_valid(self):
+        return self.issue_calendar.get_date() <= self.expiration_calendar.get_date()

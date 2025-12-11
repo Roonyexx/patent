@@ -157,7 +157,6 @@ class Client:
         for author in authors:
             if author['id'] == author_id:
                 return author['full_name']
-
         return '-'
 
     def get_patent_type_name(self, patent_type_id: int) -> str:
@@ -166,7 +165,6 @@ class Client:
         for patent_type in patent_types:
             if patent_type.get('id') == patent_type_id:
                 return patent_type.get('name')
-
         return '-'
 
     def get_status_id_by_name(self, name: str):
@@ -175,7 +173,6 @@ class Client:
         for status in statuses:
             if status.get('name') == name:
                 return status.get('id')
-
         return -1
 
     def get_patent_type_id_by_name(self, name: str):
@@ -184,7 +181,6 @@ class Client:
         for patent_type in patent_types:
             if patent_type.get('name') == name:
                 return patent_type.get('id')
-
         return -1
 
     def get_rights_holder_id_by_name(self, name: str):
@@ -193,5 +189,12 @@ class Client:
         for rights_holder in rights_holders:
             if rights_holder.get('name') == name:
                 return rights_holder.get('id')
-
         return -1
+
+    def get_rights_holder_name(self, rights_holder_id: int):
+        rights_holders = self.get_rights_holders()
+
+        for rights_holder in rights_holders:
+            if rights_holder.get('id') == rights_holder_id:
+                return rights_holder.get('name')
+        return '-'
