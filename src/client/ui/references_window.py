@@ -11,6 +11,7 @@ class ReferencesWindow:
         self.parent_frame = parent_frame
         self.api_client = api_client
 
+
         self.employees = []
         self.authors = []
 
@@ -30,7 +31,6 @@ class ReferencesWindow:
         self.load_data()
 
     def create_widgets(self):
-        """Создать виджеты"""
         header_frame = ttk.Frame(self.parent_frame)
         header_frame.pack(fill=tk.X, pady=(0, 20))
 
@@ -66,21 +66,18 @@ class ReferencesWindow:
             messagebox.showerror("Ошибка", f"Не удалось загрузить паспорта:\n{str(e)}")
 
     def get_position_name(self, position_id):
-        """Получить название должности по ID"""
         for p in self.positions:
             if p['id'] == position_id:
                 return p['name']
         return str(position_id)
 
     def get_passport_string(self, passport_id):
-        """Получить строку паспорта (серия номер) по ID"""
         for p in self.passports:
             if p['id'] == passport_id:
                 return f"{p['series']} {p['number']}"
         return str(passport_id)
 
     def create_employees_tab(self):
-        """Создать вкладку сотрудников"""
         toolbar_frame = ttk.Frame(self.employees_frame)
         toolbar_frame.pack(fill=tk.X, pady=(0, 10))
 
@@ -96,10 +93,12 @@ class ReferencesWindow:
         ttk.Entry(filter_frame, textvariable=self.emp_full_name_var, width=20).pack(side=tk.LEFT, padx=(0, 10))
 
         ttk.Label(filter_frame, text="Паспорт (серия номер):").pack(side=tk.LEFT, padx=(0, 5))
+        self.emp_passport_var.trace('w', lambda *args: self.filter_employees())
         ttk.Entry(filter_frame, textvariable=self.emp_passport_var, width=15).pack(side=tk.LEFT, padx=(0, 10))
 
         ttk.Label(filter_frame, text="Должность:").pack(side=tk.LEFT, padx=(0, 5))
         positions_names = [p['name'] for p in self.positions] if self.positions else []
+        self.emp_position_var.trace('w', lambda *args: self.filter_employees())
         ttk.Combobox(filter_frame, textvariable=self.emp_position_var, values=positions_names, width=20).pack(side=tk.LEFT, padx=(0, 10))
 
         ttk.Button(filter_frame, text="Применить фильтры", command=self.filter_employees).pack(side=tk.LEFT)
@@ -208,22 +207,28 @@ class ReferencesWindow:
         if not emp:
             return
 
-        dialog = EmployeeDialog(self.parent_frame, self.positions, self.passports, emp)
+        dialog = EmployeeDialog(self.parent_frame, self.positions, self.passports, emp, self.api_client)
         if dialog.employee_payload:
             try:
                 self.api_client.update_employee(emp_id, dialog.employee_payload)
                 messagebox.showinfo("Успех", "Сотрудник обновлен успешно!")
+                self.load_passports()
                 self.load_employees()
             except Exception as e:
                 messagebox.showerror("Ошибка", f"Не удалось обновить сотрудника:\n{str(e)}")
 
     def delete_employee(self):
+        current_employee_id = self.user.get("employee_id") or self.user.get("id")
         selected = self.employees_tree.selection()
         if not selected:
             messagebox.showwarning("Предупреждение", "Выберите сотрудника для удаления")
             return
 
         emp_id = int(self.employees_tree.item(selected[0])['values'][0])
+
+        if self.user.get('user_type') == 'employee' and emp_id == self.user.get('employee_id'):
+            messagebox.showwarning("Предупреждение", "Нельзя удалить сотрудника, так как произведен вход под его учетной записью")
+            return
 
         if messagebox.askyesno("Подтверждение", f"Вы уверены, что хотите удалить сотрудника #{emp_id}?"):
             try:
@@ -272,7 +277,6 @@ class ReferencesWindow:
         tk.Button(main_frame, text="Закрыть", command=view_window.destroy).pack(pady=(20, 0))
 
     def create_authors_tab(self):
-        """Создать вкладку авторов"""
         toolbar_frame = ttk.Frame(self.authors_frame)
         toolbar_frame.pack(fill=tk.X, pady=(0, 10))
 
@@ -286,6 +290,7 @@ class ReferencesWindow:
         ttk.Entry(toolbar_frame, textvariable=self.author_search_var, width=20).pack(side=tk.LEFT, padx=(0, 10))
 
         ttk.Label(toolbar_frame, text="Паспорт (серия номер):").pack(side=tk.LEFT, padx=(0, 5))
+        self.author_passport_var.trace('w', lambda *args: self.filter_authors())
         ttk.Entry(toolbar_frame, textvariable=self.author_passport_var, width=15).pack(side=tk.LEFT, padx=(0, 10))
 
         ttk.Button(toolbar_frame, text="Применить фильтры", command=self.filter_authors).pack(side=tk.LEFT)
@@ -370,11 +375,12 @@ class ReferencesWindow:
             self.authors_tree.insert("", tk.END, values=values)
 
     def create_author(self):
-        dialog = AuthorDialog(self.parent_frame, self.passports)
+        dialog = AuthorDialog(self.parent_frame, self.passports, api_client=self.api_client)
         if dialog.author_payload:
             try:
                 self.api_client.create_author(dialog.author_payload)
                 messagebox.showinfo("Успех", "Автор создан успешно!")
+                self.load_passports()
                 self.load_authors()
             except Exception as e:
                 messagebox.showerror("Ошибка", f"Не удалось создать автора:\n{str(e)}")
@@ -391,11 +397,12 @@ class ReferencesWindow:
         if not author:
             return
 
-        dialog = AuthorDialog(self.parent_frame, self.passports, author)
+        dialog = AuthorDialog(self.parent_frame, self.passports, author, self.api_client)
         if dialog.author_payload:
             try:
                 self.api_client.update_author(author_id, dialog.author_payload)
                 messagebox.showinfo("Успех", "Автор обновлен успешно!")
+                self.load_passports()
                 self.load_authors()
             except Exception as e:
                 messagebox.showerror("Ошибка", f"Не удалось обновить автора:\n{str(e)}")
@@ -520,16 +527,16 @@ class ReferencesWindow:
             messagebox.showerror("Ошибка", f"Не удалось загрузить патенты автора:\n{str(e)}")
 
     def load_data(self):
-        """Загрузить все данные"""
         self.load_employees()
         self.load_authors()
 
 
 class EmployeeDialog:
-    def __init__(self, parent, positions, passports, employee=None):
+    def __init__(self, parent, positions, passports, employee=None, api_client=None):
         self.positions = positions
         self.passports = passports
         self.employee = employee
+        self.api_client = api_client
 
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Редактировать сотрудника")
@@ -573,11 +580,13 @@ class EmployeeDialog:
             self.position_var.set(pos_name)
 
         ttk.Label(main_frame, text="Паспорт (серия номер через пробел):").pack(anchor=tk.W)
+        passport_strings = [f"{p['series']} {p['number']}" for p in self.passports]
+        pas_combo = ttk.Combobox(main_frame, textvariable=self.passport_var, values=passport_strings)
+        pas_combo.pack(fill=tk.X, pady=5)
         if self.employee and self.employee.get('passport_id'):
             pas = next((p for p in self.passports if p['id'] == self.employee['passport_id']), None)
             if pas:
                 self.passport_var.set(f"{pas['series']} {pas['number']}")
-        ttk.Entry(main_frame, textvariable=self.passport_var).pack(fill=tk.X, pady=5)
 
         ttk.Button(main_frame, text="Сохранить", command=self.save).pack(pady=10)
         ttk.Button(main_frame, text="Отмена", command=self.dialog.destroy).pack()
@@ -593,8 +602,21 @@ class EmployeeDialog:
         passport_str = self.passport_var.get().strip()
         if passport_str:
             parts = passport_str.split()
-            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
-                passport_id = next((p['id'] for p in self.passports if str(p['series']) == parts[0] and str(p['number']) == parts[1]), None)
+            if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit():
+                messagebox.showwarning("Предупреждение", "Паспорт должен быть в формате 'серия номер' (две цифры через пробел)")
+                return
+            series = int(parts[0])
+            number = int(parts[1])
+            passport_id = next((p['id'] for p in self.passports if p['series'] == series and p['number'] == number), None)
+            if passport_id is None:
+                try:
+                    new_passport = self.api_client.create_passport({'series': series, 'number': number})
+                    passport_id = new_passport['id']
+                    self.passports.append(new_passport)
+                    messagebox.showinfo("Инфо", "Создан новый паспорт")
+                except Exception as e:
+                    messagebox.showerror("Ошибка", f"Не удалось создать паспорт:\n{str(e)}")
+                    return
 
         self.employee_payload = {
             'full_name': self.full_name_var.get().strip(),
@@ -607,9 +629,10 @@ class EmployeeDialog:
 
 
 class AuthorDialog:
-    def __init__(self, parent, passports, author=None):
+    def __init__(self, parent, passports, author=None, api_client=None):
         self.passports = passports
         self.author = author
+        self.api_client = api_client
 
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Создать автора" if not author else "Редактировать автора")
@@ -634,11 +657,13 @@ class AuthorDialog:
         ttk.Entry(main_frame, textvariable=self.full_name_var).pack(fill=tk.X, pady=5)
 
         ttk.Label(main_frame, text="Паспорт (серия номер через пробел):").pack(anchor=tk.W)
+        passport_strings = [f"{p['series']} {p['number']}" for p in self.passports]
+        pas_combo = ttk.Combobox(main_frame, textvariable=self.passport_var, values=passport_strings)
+        pas_combo.pack(fill=tk.X, pady=5)
         if self.author and self.author.get('passport_id'):
             pas = next((p for p in self.passports if p['id'] == self.author['passport_id']), None)
             if pas:
                 self.passport_var.set(f"{pas['series']} {pas['number']}")
-        ttk.Entry(main_frame, textvariable=self.passport_var).pack(fill=tk.X, pady=5)
 
         ttk.Button(main_frame, text="Сохранить", command=self.save).pack(pady=10)
         ttk.Button(main_frame, text="Отмена", command=self.dialog.destroy).pack()
@@ -652,8 +677,21 @@ class AuthorDialog:
         passport_str = self.passport_var.get().strip()
         if passport_str:
             parts = passport_str.split()
-            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
-                passport_id = next((p['id'] for p in self.passports if str(p['series']) == parts[0] and str(p['number']) == parts[1]), None)
+            if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit():
+                messagebox.showwarning("Предупреждение", "Паспорт должен быть в формате 'серия номер' (две цифры через пробел)")
+                return
+            series = int(parts[0])
+            number = int(parts[1])
+            passport_id = next((p['id'] for p in self.passports if p['series'] == series and p['number'] == number), None)
+            if passport_id is None:
+                try:
+                    new_passport = self.api_client.create_passport({'series': series, 'number': number})
+                    passport_id = new_passport['id']
+                    self.passports.append(new_passport)
+                    messagebox.showinfo("Инфо", "Создан новый паспорт")
+                except Exception as e:
+                    messagebox.showerror("Ошибка", f"Не удалось создать паспорт:\n{str(e)}")
+                    return
 
         self.author_payload = {
             'full_name': self.full_name_var.get().strip(),
