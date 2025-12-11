@@ -1,6 +1,6 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException
-from src.api.depends import SessionDep, CurrentUserDep, EmployeeUserDep
+from src.api.depends import SessionDep, CurrentUserDep
 from src.schemas.patent import (
     Position, Author, AuthorBase, AuthorDetailed,
     RightsHolder, RightsHolderBase,
@@ -16,14 +16,13 @@ from src.db.crud.references import (
     get_passport, get_passports, create_passport, update_passport, delete_passport,
     get_rights_holder, get_rights_holders, create_rights_holder,
     get_status, get_statuses, create_status,
-    get_patent_type, get_patent_types, create_patent_type,
-    get_positions
+    get_patent_type, get_patent_types, create_patent_type, get_positions
 )
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from src.models.models import Author as AuthorModel, Application, Patent, PatentAuthor
 
-router = APIRouter(prefix="/reference", tags=["reference"])
+router = APIRouter()
 
 
 @router.get("/employees/", response_model=list[Employee])
@@ -37,7 +36,7 @@ async def list_employees(
         skip: int = 0,
         limit: int = 100
 ):
-    """Получить список сотрудников с фильтрацией"""
+    """Get list of employees with filtering (requires authentication)"""
     employees = await get_employees(
         session=session,
         full_name=full_name,
@@ -51,12 +50,8 @@ async def list_employees(
 
 
 @router.get("/employees/{employee_id}", response_model=Employee)
-async def get_employee_details(
-        employee_id: int,
-        session: SessionDep,
-        current_user: CurrentUserDep
-):
-    """Получить информацию о сотруднике по ID"""
+async def get_employee_details(employee_id: int, session: SessionDep, current_user: CurrentUserDep):
+    """Get employee details (requires authentication)"""
     employee = await get_employee(session, employee_id)
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
@@ -64,56 +59,81 @@ async def get_employee_details(
 
 
 @router.post("/employees/", response_model=Employee)
-async def create_new_employee(
-        employee: EmployeeBase,
-        session: SessionDep,
-        current_user: EmployeeUserDep  # Только сотрудники могут создавать новых сотрудников
-):
-    """Создать нового сотрудника"""
+async def create_new_employee(employee: EmployeeBase, session: SessionDep, current_user: CurrentUserDep):
+    """Create employee"""
     db_employee = await create_employee(session, employee.dict())
     return db_employee
 
 
 @router.put("/employees/{employee_id}", response_model=Employee)
-async def update_employee_details(
-        employee_id: int,
-        employee: EmployeeBase,
-        session: SessionDep,
-        current_user: CurrentUserDep  # Все авторизованные могут редактировать
-):
-    """Обновить информацию о сотруднике"""
-    updated_employee = await update_employee(
-        session, employee_id, employee.dict(exclude_unset=True)
-    )
+async def update_employee_details(employee_id: int, employee: EmployeeBase, session: SessionDep, current_user: CurrentUserDep):
+    """Update employee"""
+    updated_employee = await update_employee(session, employee_id, employee.dict(exclude_unset=True))
     if not updated_employee:
         raise HTTPException(status_code=404, detail="Employee not found")
     return updated_employee
 
 
 @router.delete("/employees/{employee_id}")
-async def delete_employee_by_id(
-        employee_id: int,
-        session: SessionDep,
-        current_user: CurrentUserDep  # Все авторизованные могут удалять
-):
-    """Удалить сотрудника"""
+async def delete_employee_by_id(employee_id: int, session: SessionDep, current_user: CurrentUserDep):
+    """Delete employee"""
     deleted_employee = await delete_employee(session, employee_id)
     if not deleted_employee:
         raise HTTPException(status_code=404, detail="Employee not found")
     return {"message": "Employee deleted successfully"}
 
 
+@router.get("/passports/", response_model=list[Passport])
+async def list_passports(session: SessionDep, skip: int = 0, limit: int = 100):
+    """Get list of passports"""
+    passports = await get_passports(session, skip, limit)
+    return [Passport.from_orm(p) for p in passports]
+
+
+@router.get("/passports/{passport_id}", response_model=Passport)
+async def get_passport_details(passport_id: int, session: SessionDep):
+    """Get passport details"""
+    passport = await get_passport(session, passport_id)
+    if not passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    return Passport.from_orm(passport)
+
+
+@router.post("/passports/", response_model=Passport)
+async def create_new_passport(passport: PassportBase, session: SessionDep):
+    """Create passport"""
+    db_passport = await create_passport(session, passport.dict())
+    return Passport.from_orm(db_passport)
+
+
+@router.put("/passports/{passport_id}", response_model=Passport)
+async def update_passport_details(passport_id: int, passport: PassportBase, session: SessionDep):
+    """Update passport"""
+    updated_passport = await update_passport(session, passport_id, passport.dict(exclude_unset=True))
+    if not updated_passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    return Passport.from_orm(updated_passport)
+
+
+@router.delete("/passports/{passport_id}")
+async def delete_passport_by_id(passport_id: int, session: SessionDep):
+    """Delete passport"""
+    deleted_passport = await delete_passport(session, passport_id)
+    if not deleted_passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    return {"message": "Passport deleted successfully"}
+
+
 @router.get("/authors/", response_model=list[Author])
 async def list_authors(
         session: SessionDep,
-        current_user: CurrentUserDep,
         full_name: Optional[str] = None,
         passport_series: Optional[int] = None,
         passport_number: Optional[int] = None,
         skip: int = 0,
         limit: int = 100
 ):
-    """Получить список авторов с фильтрацией"""
+    """Get list of authors with filtering"""
     authors = await get_authors(
         session=session,
         full_name=full_name,
@@ -122,16 +142,12 @@ async def list_authors(
         skip=skip,
         limit=limit
     )
-    return authors
+    return [Author.from_orm(a) for a in authors]
 
 
 @router.get("/authors/{author_id}", response_model=AuthorDetailed)
-async def get_author_details(
-        author_id: int,
-        session: SessionDep,
-        current_user: CurrentUserDep
-):
-    """Получить детальную информацию об авторе"""
+async def get_author_details(author_id: int, session: SessionDep):
+    """Get detailed author information with passport, applications, and patents"""
     result = await session.execute(
         select(AuthorModel)
         .where(AuthorModel.id == author_id)
@@ -164,122 +180,40 @@ async def get_author_details(
 
 
 @router.post("/authors/", response_model=Author)
-async def create_new_author(
-        author: AuthorBase,
-        session: SessionDep,
-        current_user: CurrentUserDep
-):
-    """Создать нового автора"""
+async def create_new_author(author: AuthorBase, session: SessionDep):
+    """Create author"""
     db_author = await create_author(session, author.dict())
-    return db_author
+    return Author.from_orm(db_author)
 
 
 @router.put("/authors/{author_id}", response_model=Author)
-async def update_author_details(
-        author_id: int,
-        author: AuthorBase,
-        session: SessionDep,
-        current_user: CurrentUserDep  # Все авторизованные могут редактировать
-):
-    """Обновить информацию об авторе"""
-    updated_author = await update_author(
-        session, author_id, author.dict(exclude_unset=True)
-    )
+async def update_author_details(author_id: int, author: AuthorBase, session: SessionDep):
+    """Update author"""
+    updated_author = await update_author(session, author_id, author.dict(exclude_unset=True))
     if not updated_author:
         raise HTTPException(status_code=404, detail="Author not found")
-    return updated_author
+    return Author.from_orm(updated_author)
 
 
 @router.delete("/authors/{author_id}")
-async def delete_author_by_id(
-        author_id: int,
-        session: SessionDep,
-        current_user: CurrentUserDep  # Все авторизованные могут удалять
-):
-    """Удалить автора"""
+async def delete_author_by_id(author_id: int, session: SessionDep):
+    """Delete author"""
     deleted_author = await delete_author(session, author_id)
     if not deleted_author:
         raise HTTPException(status_code=404, detail="Author not found")
     return {"message": "Author deleted successfully"}
 
 
-@router.get("/passports/", response_model=list[Passport])
-async def list_passports(
-        session: SessionDep,
-        skip: int = 0,
-        limit: int = 100
-):
-    """Получить список паспортов"""
-    passports = await get_passports(session, skip, limit)
-    return passports
-
-
-@router.get("/passports/{passport_id}", response_model=Passport)
-async def get_passport_details(
-        passport_id: int,
-        session: SessionDep
-):
-    """Получить информацию о паспорте по ID"""
-    passport = await get_passport(session, passport_id)
-    if not passport:
-        raise HTTPException(status_code=404, detail="Passport not found")
-    return passport
-
-
-@router.post("/passports/", response_model=Passport)
-async def create_new_passport(
-        passport: PassportBase,
-        session: SessionDep
-):
-    """Создать новый паспорт"""
-    db_passport = await create_passport(session, passport.dict())
-    return db_passport
-
-
-@router.put("/passports/{passport_id}", response_model=Passport)
-async def update_passport_details(
-        passport_id: int,
-        passport: PassportBase,
-        session: SessionDep
-):
-    """Обновить информацию о паспорте"""
-    updated_passport = await update_passport(
-        session, passport_id, passport.dict(exclude_unset=True)
-    )
-    if not updated_passport:
-        raise HTTPException(status_code=404, detail="Passport not found")
-    return updated_passport
-
-
-@router.delete("/passports/{passport_id}")
-async def delete_passport_by_id(
-        passport_id: int,
-        session: SessionDep
-):
-    """Удалить паспорт"""
-    deleted_passport = await delete_passport(session, passport_id)
-    if not deleted_passport:
-        raise HTTPException(status_code=404, detail="Passport not found")
-    return {"message": "Passport deleted successfully"}
-
-
 @router.get("/rightsholders/", response_model=list[RightsHolder])
-async def list_rights_holders(
-        session: SessionDep,
-        skip: int = 0,
-        limit: int = 100
-):
-    """Получить список правообладателей"""
+async def list_rights_holders(session: SessionDep, skip: int = 0, limit: int = 100):
+    """Get list of rights holders"""
     rightsholders = await get_rights_holders(session, skip, limit)
     return rightsholders
 
 
 @router.get("/rightsholders/{holder_id}", response_model=RightsHolder)
-async def get_rights_holder_details(
-        holder_id: int,
-        session: SessionDep
-):
-    """Получить информацию о правообладателе по ID"""
+async def get_rights_holder_details(holder_id: int, session: SessionDep):
+    """Get rights holder details"""
     rightsholder = await get_rights_holder(session, holder_id)
     if not rightsholder:
         raise HTTPException(status_code=404, detail="Rights holder not found")
@@ -287,30 +221,22 @@ async def get_rights_holder_details(
 
 
 @router.post("/rightsholders/", response_model=RightsHolder)
-async def create_new_rights_holder(
-        rightsholder: RightsHolderBase,
-        session: SessionDep
-):
-    """Создать нового правообладателя"""
+async def create_new_rights_holder(rightsholder: RightsHolderBase, session: SessionDep):
+    """Create rights holder"""
     db_rightsholder = await create_rights_holder(session, rightsholder.dict())
     return db_rightsholder
 
 
 @router.get("/statuses/", response_model=list[Status])
-async def list_statuses(
-        session: SessionDep
-):
-    """Получить список статусов"""
+async def list_statuses(session: SessionDep):
+    """Get list of statuses"""
     statuses = await get_statuses(session)
     return statuses
 
 
 @router.get("/statuses/{status_id}", response_model=Status)
-async def get_status_details(
-        status_id: int,
-        session: SessionDep
-):
-    """Получить информацию о статусе по ID"""
+async def get_status_details(status_id: int, session: SessionDep):
+    """Get status details"""
     status = await get_status(session, status_id)
     if not status:
         raise HTTPException(status_code=404, detail="Status not found")
@@ -318,30 +244,22 @@ async def get_status_details(
 
 
 @router.post("/statuses/", response_model=Status)
-async def create_new_status(
-        status: StatusBase,
-        session: SessionDep
-):
-    """Создать новый статус"""
+async def create_new_status(status: StatusBase, session: SessionDep):
+    """Create status"""
     db_status = await create_status(session, status.dict())
     return db_status
 
 
 @router.get("/types/", response_model=list[PatentType])
-async def list_types(
-        session: SessionDep
-):
-    """Получить список типов патентов"""
+async def list_types(session: SessionDep):
+    """Get list of patent types"""
     types = await get_patent_types(session)
     return types
 
 
 @router.get("/types/{type_id}", response_model=PatentType)
-async def get_type_details(
-        type_id: int,
-        session: SessionDep
-):
-    """Получить информацию о типе патента по ID"""
+async def get_type_details(type_id: int, session: SessionDep):
+    """Get patent type details"""
     type_obj = await get_patent_type(session, type_id)
     if not type_obj:
         raise HTTPException(status_code=404, detail="Patent type not found")
@@ -349,19 +267,14 @@ async def get_type_details(
 
 
 @router.post("/types/", response_model=PatentType)
-async def create_new_type(
-        type_obj: PatentTypeBase,
-        session: SessionDep
-):
-    """Создать новый тип патента"""
+async def create_new_type(type_obj: PatentTypeBase, session: SessionDep):
+    """Create patent type"""
     db_type = await create_patent_type(session, type_obj.model_dump())
     return db_type
 
 
 @router.get("/positions/", response_model=list[Position])
-async def list_positions(
-        session: SessionDep
-):
-    """Получить список должностей"""
+async def list_positions(session: SessionDep):
+    """Get list of positions"""
     positions = await get_positions(session)
     return positions

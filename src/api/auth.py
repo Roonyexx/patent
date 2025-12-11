@@ -7,10 +7,9 @@ from src.schemas.patent import (
 from src.db.crud.user import (
     get_user_by_username, get_user_by_email, create_user, get_user_by_id
 )
-
 from src.db.crud.references import (
     get_employee, get_author, get_position,
-    create_employee, create_author
+    create_employee_internal, create_author_internal
 )
 from src.core.security import (
     hash_password, verify_password, create_access_token, create_refresh_token,
@@ -78,7 +77,7 @@ async def register(
             )
         position_name = position.name
 
-        employee = await create_employee(
+        employee = await create_employee_internal(
             session,
             full_name=registration.full_name,
             employment_date=registration.employment_date,
@@ -88,8 +87,7 @@ async def register(
         employee_id = employee.id
 
     else:
-
-        author = await create_author(
+        author = await create_author_internal(
             session,
             full_name=registration.full_name
         )
@@ -252,3 +250,9 @@ async def get_current_user_info(
 @router.post("/logout")
 async def logout(current_user: CurrentUserDep):
     return {"message": f"User {current_user.username} logged out successfully"}
+
+
+
+
+
+
